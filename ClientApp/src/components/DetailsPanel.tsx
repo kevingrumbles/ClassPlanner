@@ -1,58 +1,38 @@
 import { useState } from 'react';
-import type { ClassDetail, ClassSummary, ScheduleDetail, StudentDetail, StudentSummary } from '../types/models';
-import { formatDuration, formatTime } from './format';
+import type { DayOfWeekIndex, ScheduledClassDetail, StudentDetail } from '../types/models';
+import { DAY_NAMES, formatDuration, formatHourLabel } from './format';
 
 interface DetailsPanelProps {
-  onClose: () => void;
   student?: StudentDetail;
-  trainingClass?: ClassDetail;
-  scheduleDetail?: ScheduleDetail;
+  scheduledClassDetail?: ScheduledClassDetail;
   loading?: boolean;
-  allClasses?: ClassSummary[];
-  allStudents?: StudentSummary[];
-  onEnroll?: (studentId: string, classId: string) => void;
   onRemoveEnrollment?: (studentId: string, classId: string) => void;
-  weekDays?: Date[];
   hours?: number[];
-  onScheduleClass?: (classId: string, startTime: string) => void;
-  onMoveSchedule?: (scheduleId: string, startTime: string) => void;
-  onRemoveSchedule?: (scheduleId: string) => void;
+  onMoveScheduledClass?: (entryId: string, dayOfWeek: DayOfWeekIndex, startTime: string) => void;
+  onRemoveScheduledClass?: (entryId: string) => void;
 }
 
+const DAY_OPTIONS: DayOfWeekIndex[] = [1, 2, 3, 4, 5, 6, 0];
+
+/** Renders student or scheduled-class-entry details as inline focus-pane content. */
 export function DetailsPanel({
-  onClose,
   student,
-  trainingClass,
-  scheduleDetail,
+  scheduledClassDetail,
   loading,
-  allClasses,
-  allStudents,
-  onEnroll,
   onRemoveEnrollment,
-  weekDays,
   hours,
-  onScheduleClass,
-  onMoveSchedule,
-  onRemoveSchedule,
+  onMoveScheduledClass,
+  onRemoveScheduledClass,
 }: DetailsPanelProps) {
-  const [selectedClassId, setSelectedClassId] = useState('');
-  const [selectedStudentId, setSelectedStudentId] = useState('');
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedHour, setSelectedHour] = useState('');
 
-  const availableClassesForStudent = (allClasses ?? []).filter(
-    (c) => !student?.enrolledClasses.some((ec) => ec.id === c.id)
-  );
-  const availableStudentsForClass = (allStudents ?? []).filter(
-    (s) => !trainingClass?.enrolledStudents.some((es) => es.id === s.id)
-  );
+  function buildStartTime(hour: string): string {
+    return `${hour.padStart(2, '0')}:00:00`;
+  }
 
   return (
-    <aside className="details-panel" role="dialog" aria-label="Details">
-      <button type="button" className="details-close" onClick={onClose} aria-label="Close details">
-        ×
-      </button>
-
+    <div className="focus-panel">
       {loading && <p>Loading...</p>}
 
       {!loading && student && (
@@ -82,161 +62,39 @@ export function DetailsPanel({
               </li>
             ))}
           </ul>
-          {onEnroll && availableClassesForStudent.length > 0 && (
-            <div className="details-action">
-              <label htmlFor="enroll-class-select">Enroll in class</label>
-              <select
-                id="enroll-class-select"
-                value={selectedClassId}
-                onChange={(e) => setSelectedClassId(e.target.value)}
-              >
-                <option value="">Select a class…</option>
-                {availableClassesForStudent.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!selectedClassId}
-                onClick={() => {
-                  onEnroll(student.id, selectedClassId);
-                  setSelectedClassId('');
-                }}
-              >
-                Enroll
-              </button>
-            </div>
-          )}
         </div>
       )}
 
-      {!loading && trainingClass && (
+      {!loading && scheduledClassDetail && (
         <div>
-          <h2>{trainingClass.name}</h2>
+          <h2>{scheduledClassDetail.trainingClassName}</h2>
           <dl>
-            <dt>Description</dt>
-            <dd>{trainingClass.description || '—'}</dd>
-            <dt>Capacity</dt>
-            <dd>
-              {trainingClass.enrollmentCount} / {trainingClass.maximumStudents}
-            </dd>
-            <dt>Duration</dt>
-            <dd>{formatDuration(trainingClass.duration)}</dd>
-            <dt>Location</dt>
-            <dd>{trainingClass.location || '—'}</dd>
-            <dt>Notes</dt>
-            <dd>{trainingClass.notes || '—'}</dd>
-          </dl>
-          <h3>Enrolled Students</h3>
-          {trainingClass.enrolledStudents.length === 0 && <p>No students enrolled.</p>}
-          <ul>
-            {trainingClass.enrolledStudents.map((s) => (
-              <li key={s.id}>
-                {s.firstName} {s.lastName}
-                {onRemoveEnrollment && (
-                  <button type="button" onClick={() => onRemoveEnrollment(s.id, trainingClass.id)}>
-                    Remove
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          {onEnroll && availableStudentsForClass.length > 0 && (
-            <div className="details-action">
-              <label htmlFor="add-student-select">Add student</label>
-              <select
-                id="add-student-select"
-                value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(e.target.value)}
-              >
-                <option value="">Select a student…</option>
-                {availableStudentsForClass.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.firstName} {s.lastName}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!selectedStudentId}
-                onClick={() => {
-                  onEnroll(selectedStudentId, trainingClass.id);
-                  setSelectedStudentId('');
-                }}
-              >
-                Add
-              </button>
-            </div>
-          )}
-          {onScheduleClass && weekDays && hours && (
-            <div className="details-action">
-              <label htmlFor="schedule-day-select">Schedule class</label>
-              <select id="schedule-day-select" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)}>
-                <option value="">Day…</option>
-                {weekDays.map((d) => (
-                  <option key={d.toISOString()} value={d.toISOString()}>
-                    {d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
-                  </option>
-                ))}
-              </select>
-              <select id="schedule-hour-select" value={selectedHour} onChange={(e) => setSelectedHour(e.target.value)}>
-                <option value="">Time…</option>
-                {hours.map((h) => (
-                  <option key={h} value={h}>
-                    {h === 12 ? '12 PM' : h > 12 ? `${h - 12} PM` : `${h} AM`}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!selectedDay || !selectedHour}
-                onClick={() => {
-                  const start = new Date(selectedDay);
-                  start.setHours(Number(selectedHour), 0, 0, 0);
-                  onScheduleClass(trainingClass.id, start.toISOString());
-                  setSelectedDay('');
-                  setSelectedHour('');
-                }}
-              >
-                Schedule
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!loading && scheduleDetail && (
-        <div>
-          <h2>{scheduleDetail.trainingClassName}</h2>
-          <dl>
-            <dt>Date</dt>
-            <dd>{new Date(scheduleDetail.startTime).toLocaleDateString()}</dd>
+            <dt>Day</dt>
+            <dd>{DAY_NAMES[scheduledClassDetail.dayOfWeek]}</dd>
             <dt>Start Time</dt>
-            <dd>{formatTime(new Date(scheduleDetail.startTime))}</dd>
+            <dd>{scheduledClassDetail.startTime}</dd>
             <dt>Duration</dt>
-            <dd>{formatDuration(scheduleDetail.duration)}</dd>
+            <dd>{formatDuration(scheduledClassDetail.duration)}</dd>
             <dt>Location</dt>
-            <dd>{scheduleDetail.location || '—'}</dd>
+            <dd>{scheduledClassDetail.location || '—'}</dd>
           </dl>
           <h3>Enrolled Students</h3>
-          {scheduleDetail.enrolledStudents.length === 0 && <p>No students enrolled.</p>}
+          {scheduledClassDetail.enrolledStudents.length === 0 && <p>No students enrolled.</p>}
           <ul>
-            {scheduleDetail.enrolledStudents.map((s) => (
+            {scheduledClassDetail.enrolledStudents.map((s) => (
               <li key={s.id}>
                 {s.firstName} {s.lastName}
               </li>
             ))}
           </ul>
-          {onMoveSchedule && weekDays && hours && (
+          {onMoveScheduledClass && hours && (
             <div className="details-action">
               <label htmlFor="move-day-select">Move class</label>
               <select id="move-day-select" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)}>
                 <option value="">Day…</option>
-                {weekDays.map((d) => (
-                  <option key={d.toISOString()} value={d.toISOString()}>
-                    {d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                {DAY_OPTIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {DAY_NAMES[d]}
                   </option>
                 ))}
               </select>
@@ -244,7 +102,7 @@ export function DetailsPanel({
                 <option value="">Time…</option>
                 {hours.map((h) => (
                   <option key={h} value={h}>
-                    {h === 12 ? '12 PM' : h > 12 ? `${h - 12} PM` : `${h} AM`}
+                    {formatHourLabel(h)}
                   </option>
                 ))}
               </select>
@@ -252,9 +110,11 @@ export function DetailsPanel({
                 type="button"
                 disabled={!selectedDay || !selectedHour}
                 onClick={() => {
-                  const start = new Date(selectedDay);
-                  start.setHours(Number(selectedHour), 0, 0, 0);
-                  onMoveSchedule(scheduleDetail.id, start.toISOString());
+                  onMoveScheduledClass(
+                    scheduledClassDetail.id,
+                    Number(selectedDay) as DayOfWeekIndex,
+                    buildStartTime(selectedHour)
+                  );
                   setSelectedDay('');
                   setSelectedHour('');
                 }}
@@ -263,15 +123,15 @@ export function DetailsPanel({
               </button>
             </div>
           )}
-          {onRemoveSchedule && (
+          {onRemoveScheduledClass && (
             <div className="details-action">
-              <button type="button" onClick={() => onRemoveSchedule(scheduleDetail.id)}>
+              <button type="button" onClick={() => onRemoveScheduledClass(scheduledClassDetail.id)}>
                 Remove from schedule
               </button>
             </div>
           )}
         </div>
       )}
-    </aside>
+    </div>
   );
 }

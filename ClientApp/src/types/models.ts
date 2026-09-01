@@ -7,6 +7,7 @@ export interface StudentSummary {
 
 export interface ClassSummary {
   id: string;
+  scheduleId: string;
   name: string;
   maximumStudents: number;
   enrollmentCount: number;
@@ -25,6 +26,7 @@ export interface StudentDetail {
 
 export interface ClassDetail {
   id: string;
+  scheduleId: string;
   name: string;
   description?: string | null;
   instructorId?: string | null;
@@ -36,16 +38,36 @@ export interface ClassDetail {
   enrolledStudents: StudentSummary[];
 }
 
-export interface ScheduleEntry {
+/**
+ * Matches .NET's System.DayOfWeek enum values as serialized by System.Text.Json
+ * (0 = Sunday ... 6 = Saturday), which also matches JavaScript's Date.getDay().
+ */
+export type DayOfWeekIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface ScheduleSummary {
   id: string;
+  name: string;
+  entryCount: number;
+}
+
+export interface ScheduledClassEntry {
+  id: string;
+  scheduleId: string;
   trainingClassId: string;
   trainingClassName: string;
-  startTime: string; // ISO date-time
+  dayOfWeek: DayOfWeekIndex;
+  startTime: string; // TimeSpan serialized as "hh:mm:ss"
   duration: string;
   location?: string | null;
 }
 
-export interface ScheduleDetail extends ScheduleEntry {
+export interface ScheduleDetail {
+  id: string;
+  name: string;
+  entries: ScheduledClassEntry[];
+}
+
+export interface ScheduledClassDetail extends ScheduledClassEntry {
   enrolledStudents: StudentSummary[];
 }
 
@@ -56,5 +78,5 @@ export interface ApiErrorResponse {
 export type SelectedObject =
   | { type: 'student'; id: string }
   | { type: 'class'; id: string }
-  | { type: 'schedule'; id: string }
+  | { type: 'scheduledClass'; scheduleId: string; entryId: string }
   | null;

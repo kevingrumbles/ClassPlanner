@@ -21,6 +21,10 @@ public interface IDataStore
     Task<List<Enrollment>> GetEnrollmentsAsync();
     Task SaveEnrollmentsAsync(List<Enrollment> enrollments);
 
-    Task<List<ClassSchedule>> GetSchedulesAsync();
-    Task SaveSchedulesAsync(List<ClassSchedule> schedules);
+    Task<List<Schedule>> GetSchedulesAsync();
+    Task<Schedule?> GetScheduleAsync(Guid id);
+    Task SaveSchedulesAsync(List<Schedule> schedules);
+
+    Task<List<ScheduledClass>> GetScheduledClassesAsync();
+    Task SaveScheduledClassesAsync(List<ScheduledClass> scheduledClasses);
 }

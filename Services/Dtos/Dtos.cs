@@ -22,6 +22,7 @@ public class StudentDetailDto
 public class ClassSummaryDto
 {
     public Guid Id { get; set; }
+    public Guid ScheduleId { get; set; }
     public string Name { get; set; } = "";
     public int MaximumStudents { get; set; }
     public int EnrollmentCount { get; set; }
@@ -31,6 +32,7 @@ public class ClassSummaryDto
 public class ClassDetailDto
 {
     public Guid Id { get; set; }
+    public Guid ScheduleId { get; set; }
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public Guid? InstructorId { get; set; }
@@ -42,12 +44,21 @@ public class ClassDetailDto
     public List<StudentSummaryDto> EnrolledStudents { get; set; } = [];
 }
 
-public class ScheduleDto
+public class ScheduleSummaryDto
 {
     public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public int EntryCount { get; set; }
+}
+
+public class ScheduledClassEntryDto
+{
+    public Guid Id { get; set; }
+    public Guid ScheduleId { get; set; }
     public Guid TrainingClassId { get; set; }
     public string TrainingClassName { get; set; } = "";
-    public DateTime StartTime { get; set; }
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan StartTime { get; set; }
     public TimeSpan Duration { get; set; }
     public string? Location { get; set; }
 }
@@ -55,21 +66,37 @@ public class ScheduleDto
 public class ScheduleDetailDto
 {
     public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public List<ScheduledClassEntryDto> Entries { get; set; } = [];
+}
+
+public class ScheduledClassDetailDto
+{
+    public Guid Id { get; set; }
+    public Guid ScheduleId { get; set; }
     public Guid TrainingClassId { get; set; }
     public string TrainingClassName { get; set; } = "";
-    public DateTime StartTime { get; set; }
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan StartTime { get; set; }
     public TimeSpan Duration { get; set; }
     public string? Location { get; set; }
     public List<StudentSummaryDto> EnrolledStudents { get; set; } = [];
 }
 
-public class ScheduleClassRequest
+public class CreateScheduleRequest
 {
-    public Guid TrainingClassId { get; set; }
-    public DateTime StartTime { get; set; }
+    public string Name { get; set; } = "";
 }
 
-public class MoveScheduleRequest
+public class CreateScheduledClassRequest
 {
-    public DateTime StartTime { get; set; }
+    public Guid TrainingClassId { get; set; }
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan StartTime { get; set; }
+}
+
+public class MoveScheduledClassRequest
+{
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan StartTime { get; set; }
 }

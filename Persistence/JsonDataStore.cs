@@ -24,11 +24,13 @@ public class JsonDataStore : IDataStore
     private readonly SemaphoreSlim _classesLock = new(1, 1);
     private readonly SemaphoreSlim _enrollmentsLock = new(1, 1);
     private readonly SemaphoreSlim _schedulesLock = new(1, 1);
+    private readonly SemaphoreSlim _scheduledClassesLock = new(1, 1);
 
     private const string StudentsFile = "students.json";
     private const string ClassesFile = "classes.json";
     private const string EnrollmentsFile = "enrollments.json";
     private const string SchedulesFile = "schedules.json";
+    private const string ScheduledClassesFile = "scheduledClasses.json";
 
     public JsonDataStore(IOptions<DataStoreOptions> options, IWebHostEnvironment environment, ILogger<JsonDataStore> logger)
     {
@@ -62,8 +64,17 @@ public class JsonDataStore : IDataStore
     public Task<List<Enrollment>> GetEnrollmentsAsync() => ReadAsync<Enrollment>(EnrollmentsFile, _enrollmentsLock);
     public Task SaveEnrollmentsAsync(List<Enrollment> enrollments) => WriteAsync(EnrollmentsFile, enrollments, _enrollmentsLock);
 
-    public Task<List<ClassSchedule>> GetSchedulesAsync() => ReadAsync<ClassSchedule>(SchedulesFile, _schedulesLock);
-    public Task SaveSchedulesAsync(List<ClassSchedule> schedules) => WriteAsync(SchedulesFile, schedules, _schedulesLock);
+    public Task<List<Schedule>> GetSchedulesAsync() => ReadAsync<Schedule>(SchedulesFile, _schedulesLock);
+    public Task SaveSchedulesAsync(List<Schedule> schedules) => WriteAsync(SchedulesFile, schedules, _schedulesLock);
+
+    public async Task<Schedule?> GetScheduleAsync(Guid id)
+    {
+        var schedules = await GetSchedulesAsync();
+        return schedules.FirstOrDefault(s => s.Id == id);
+    }
+
+    public Task<List<ScheduledClass>> GetScheduledClassesAsync() => ReadAsync<ScheduledClass>(ScheduledClassesFile, _scheduledClassesLock);
+    public Task SaveScheduledClassesAsync(List<ScheduledClass> scheduledClasses) => WriteAsync(ScheduledClassesFile, scheduledClasses, _scheduledClassesLock);
 
     private async Task<List<T>> ReadAsync<T>(string fileName, SemaphoreSlim fileLock)
     {

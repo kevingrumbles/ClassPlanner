@@ -14,12 +14,12 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Seed sample data if the JSON files are empty. Existing data is never overwritten.
-using (var scope = app.Services.CreateScope())
-{
-    var seedService = scope.ServiceProvider.GetRequiredService<ClassPlannerService>();
-    await seedService.SeedDataIfEmptyAsync();
-}
+//// Seed sample data if the JSON files are empty. Existing data is never overwritten.
+//using (var scope = app.Services.CreateScope())
+//{
+//    var seedService = scope.ServiceProvider.GetRequiredService<ClassPlannerService>();
+//    await seedService.SeedDataIfEmptyAsync();
+//}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

@@ -1,19 +1,21 @@
 # Class Planner
 
-Class Planner is a scheduling application for managing students, training classes, and a weekly class
-calendar. Users can drag students onto classes to enroll them, and drag classes onto calendar slots to
-schedule them.
+Class Planner is a scheduling application for managing students, training classes, and one or more
+named weekly Schedules. A Schedule is a reusable weekly template with seven day-of-week columns (no
+specific dates) — classes are placed on a day of the week and time of day, and recur weekly. Users can
+create multiple Schedules, drag students onto classes to enroll them, and drag classes onto a Schedule's
+day/time slots to place them on that schedule.
 
 ## Project Structure
 
 ```
 ClassPlanner/
 ├── Controllers/        ASP.NET Core API controllers (thin — delegate to ClassPlannerService)
-├── Models/              Domain models (Student, TrainingClass, Enrollment, ClassSchedule)
+├── Models/              Domain models (Student, TrainingClass, Enrollment, Schedule, ScheduledClass)
 ├── Persistence/         IDataStore abstraction + JsonDataStore (JSON file) implementation
 ├── Services/            ClassPlannerService — application/business logic
 ├── ClientApp/            Vite + React + TypeScript frontend
-├── data/                 JSON data files (students.json, classes.json, enrollments.json, schedules.json)
+├── data/                 JSON data files (students.json, classes.json, enrollments.json, schedules.json, scheduledClasses.json)
 ├── Program.cs
 └── appsettings.json
 ```
@@ -53,13 +55,15 @@ The Vite dev server proxies all `/api/*` requests to the ASP.NET Core backend (c
 
 Data is stored as human-readable, indented JSON under the `data/` directory (configurable via the
 `DataStore:DataDirectory` setting in `appsettings.json`). If a JSON file doesn't exist, it is treated as
-an empty collection. On first run, sample students, classes, enrollments, and schedules are seeded if the
-files are empty; existing data is never overwritten.
+an empty collection. On first run, sample students, classes, enrollments, a default Schedule, and a few
+sample scheduled classes (placed on specific days of the week and times) are seeded if the files are
+empty; existing data is never overwritten.
 
 ## How IDataStore Works
 
 `IDataStore` (in `Persistence/IDataStore.cs`) is the single persistence abstraction used by the application.
-It exposes simple get/save operations for students, classes, enrollments, and schedules. The current
+It exposes simple get/save operations for students, classes, enrollments, Schedule templates, and
+ScheduledClass entries (a class placed on a specific day of week and time within a Schedule). The current
 implementation, `JsonDataStore`, reads and writes JSON files with an in-process lock per file (to avoid
 concurrent read/modify/write corruption) and atomic file replacement (write to a temp file, then move).
 
@@ -84,8 +88,9 @@ No changes would be required in `ClassPlannerService`, the controllers, or the R
 ## Frontend/Backend Communication
 
 The React app communicates with the API exclusively through `ClientApp/src/services/api.ts`, which issues
-`fetch` calls to relative paths (`/api/students`, `/api/classes`, `/api/schedule`, etc.). No component makes
-raw `fetch` calls directly, and no URLs are hard-coded to a specific host or port.
+`fetch` calls to relative paths (`/api/students`, `/api/classes`, `/api/schedules`, and nested
+`/api/schedules/{scheduleId}/entries` routes, etc.). No component makes raw `fetch` calls directly, and no
+URLs are hard-coded to a specific host or port.
 
 ## Production Build & Hosting
 
@@ -106,8 +111,9 @@ via `UseStaticFiles` and `MapFallbackToFile`).
 The frontend uses [`@dnd-kit`](https://dndkit.com/) for all primary drag-and-drop interactions:
 
 - Drag a student onto a class to enroll them.
-- Drag a class onto a calendar slot to schedule it.
-- Drag a scheduled class to a different calendar slot to move it.
+- Drag a class onto a day/time slot in the active Schedule's weekly grid to place it there.
+- Drag a scheduled class to a different day/time slot to move it within the same Schedule.
 
 Accessible alternatives (select + button controls) are available in the details panel for enrolling,
-removing, scheduling, and moving classes without a mouse.
+removing, scheduling, and moving classes without a mouse, using day-of-week and time-of-day selectors
+instead of dates. A header control lets users switch between Schedules or create/delete a Schedule.

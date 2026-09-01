@@ -1,114 +1,94 @@
 import { useDraggable } from '@dnd-kit/core';
-import type { CSSProperties } from 'react';
-import type { ScheduleEntry } from '../types/models';
+import type { ScheduledClassEntry } from '../types/models';
 import { CalendarSlot } from './CalendarSlot';
-import { formatDayLabel, formatTime, parseDurationMinutes } from './format';
-
-const START_HOUR = 8;
-const END_HOUR = 17; // 5 PM, exclusive of the slot after it
-const HOUR_HEIGHT = 64;
+import { DAY_NAMES, formatHourLabel, formatTimeOfDay, parseDurationMinutes } from './format';
 
 interface CalendarProps {
-  weekStart: Date;
-  schedule: ScheduleEntry[];
-  onSelectSchedule: (id: string) => void;
+  entries: ScheduledClassEntry[];
+  hours: number[];
+  onSelectEntry: (entryId: string) => void;
+  scheduleName?: string;
+  onDeleteSchedule?: () => void;
 }
 
-function getWeekDays(weekStart: Date): Date[] {
-  return Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+interface DraggableEntryProps {
+  entry: ScheduledClassEntry;
+  onSelectEntry: (entryId: string) => void;
 }
 
-function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-interface ScheduledClassTileProps {
-  entry: ScheduleEntry;
-  top: number;
-  height: number;
-  onSelect: (id: string) => void;
-}
-
-function ScheduledClassTile({ entry, top, height, onSelect }: ScheduledClassTileProps) {
+function DraggableEntry({ entry, onSelectEntry }: DraggableEntryProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `scheduled:${entry.id}`,
-    data: { type: 'scheduled', scheduleId: entry.id },
+    data: { type: 'scheduled', entryId: entry.id },
   });
 
-  const style: CSSProperties = {
-    top,
-    height,
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-  };
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
 
   return (
     <button
       type="button"
       ref={setNodeRef}
       style={style}
+      className={`tile calendar-entry${isDragging ? ' is-dragging' : ''}`}
+      onClick={() => onSelectEntry(entry.id)}
       {...listeners}
       {...attributes}
-      className={`scheduled-tile${isDragging ? ' is-dragging' : ''}`}
-      onClick={() => onSelect(entry.id)}
     >
-      <span className="tile-title">{entry.trainingClassName}</span>
-      <span className="tile-subtitle">{formatTime(new Date(entry.startTime))}</span>
+      <span className="calendar-entry-name">{entry.trainingClassName}</span>
+      <span className="calendar-entry-time">{formatTimeOfDay(entry.startTime)}</span>
     </button>
   );
 }
 
-export function Calendar({ weekStart, schedule, onSelectSchedule }: CalendarProps) {
-  const days = getWeekDays(weekStart);
-  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+/** Renders a Monday-Sunday weekly schedule grid with no specific dates, only day-of-week + time-of-day placement. */
+export function Calendar({ entries, hours, onSelectEntry, scheduleName, onDeleteSchedule }: CalendarProps) {
+  // Display order Monday(1) .. Sunday(0), matching typical weekly schedule conventions.
+  const orderedDays = [1, 2, 3, 4, 5, 6, 0] as const;
+
+  function entriesFor(dayOfWeek: number, hour: number) {
+    return entries.filter((e) => {
+      if (e.dayOfWeek !== dayOfWeek) return false;
+      const startMinutes = parseDurationMinutes(e.startTime);
+      const startHour = Math.floor(startMinutes / 60);
+      return startHour === hour;
+    });
+  }
 
   return (
     <div className="calendar">
-      <div className="calendar-header">
-        <div className="calendar-time-column-header" />
-        {days.map((day) => (
-          <div key={dayKey(day)} className="calendar-day-header">
-            {formatDayLabel(day)}
+      {(scheduleName || onDeleteSchedule) && (
+        <div className="calendar-toolbar">
+          {scheduleName && <span className="calendar-toolbar-title">{scheduleName}</span>}
+          {onDeleteSchedule && (
+            <button type="button" className="calendar-delete-schedule" onClick={onDeleteSchedule}>
+              Delete Schedule
+            </button>
+          )}
+        </div>
+      )}
+      <div className="calendar-grid" style={{ gridTemplateColumns: `auto repeat(${orderedDays.length}, 1fr)` }}>
+        <div className="calendar-corner" />
+        {orderedDays.map((day) => (
+          <div key={day} className="calendar-day-header">
+            {DAY_NAMES[day]}
           </div>
         ))}
-      </div>
-      <div className="calendar-body">
-        <div className="calendar-time-column">
-          {hours.map((hour) => (
-            <div key={hour} className="calendar-time-label" style={{ height: HOUR_HEIGHT }}>
-              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
-            </div>
-          ))}
-        </div>
-        {days.map((day) => {
-          const dayEntries = schedule.filter((s) => dayKey(new Date(s.startTime)) === dayKey(day));
-          return (
-            <div key={dayKey(day)} className="calendar-day-column">
-              {hours.map((hour) => (
-                <CalendarSlot key={hour} day={day} hour={hour} />
-              ))}
-              {dayEntries.map((entry) => {
-                const start = new Date(entry.startTime);
-                const startMinutesFromOpen = (start.getHours() - START_HOUR) * 60 + start.getMinutes();
-                const durationMinutes = parseDurationMinutes(entry.duration);
-                const top = (startMinutesFromOpen / 60) * HOUR_HEIGHT;
-                const height = Math.max((durationMinutes / 60) * HOUR_HEIGHT, 24);
-                return (
-                  <ScheduledClassTile
-                    key={entry.id}
-                    entry={entry}
-                    top={top}
-                    height={height}
-                    onSelect={onSelectSchedule}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
+
+        {hours.map((hour) => (
+          <div key={hour} className="calendar-row" style={{ display: 'contents' }}>
+            <div className="calendar-hour-label">{formatHourLabel(hour)}</div>
+            {orderedDays.map((day) => (
+              <div key={`${day}-${hour}`} className="calendar-cell">
+                <CalendarSlot dayOfWeek={day} hour={hour} />
+                {entriesFor(day, hour).map((entry) => (
+                  <DraggableEntry key={entry.id} entry={entry} onSelectEntry={onSelectEntry} />
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );

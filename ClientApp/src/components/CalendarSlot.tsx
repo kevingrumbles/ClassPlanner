@@ -1,16 +1,17 @@
 import { useDroppable } from '@dnd-kit/core';
+import type { DayOfWeekIndex } from '../types/models';
 
 interface CalendarSlotProps {
-  day: Date;
+  dayOfWeek: DayOfWeekIndex;
   hour: number;
 }
 
-/** A single droppable weekday/hour cell in the calendar grid. */
-export function CalendarSlot({ day, hour }: CalendarSlotProps) {
-  const id = `slot:${day.toISOString().slice(0, 10)}:${hour}`;
+/** A single droppable day-of-week/hour cell in the weekly schedule grid (no specific date). */
+export function CalendarSlot({ dayOfWeek, hour }: CalendarSlotProps) {
+  const id = `slot:${dayOfWeek}:${hour}`;
   const { setNodeRef, isOver, active } = useDroppable({
     id,
-    data: { type: 'slot', day: day.toISOString(), hour },
+    data: { type: 'slot', dayOfWeek, hour },
   });
 
   const isClassDragActive = active?.data.current?.type === 'class' || active?.data.current?.type === 'scheduled';

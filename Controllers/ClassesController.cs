@@ -8,9 +8,9 @@ namespace ClassPlanner.Controllers;
 public class ClassesController(ClassPlannerService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetClasses()
+    public async Task<IActionResult> GetClasses([FromQuery] Guid? scheduleId = null)
     {
-        var classes = await service.GetClassesAsync();
+        var classes = await service.GetClassesAsync(scheduleId);
         return Ok(classes);
     }
 
