@@ -1,0 +1,23 @@
+[
+  {
+    "Id": "46f81423-fb9b-4ed1-b614-fe49d1d35e99",
+    "TrainingClassId": "e2b32ba8-a7aa-4ca7-b791-269989a02a1b",
+    "StartTime": "2026-08-31T09:00:00-07:00",
+    "Duration": "01:00:00",
+    "Location": "Field A"
+  },
+  {
+    "Id": "78b0921e-fcb1-4dda-ba9c-f686c5729f08",
+    "TrainingClassId": "46f28784-53fb-4527-be9e-61b1502c34ec",
+    "StartTime": "2026-09-01T10:00:00-07:00",
+    "Duration": "00:45:00",
+    "Location": "Field B"
+  },
+  {
+    "Id": "018231e1-16a0-4138-9b68-78be11b44f6a",
+    "TrainingClassId": "7951676d-43cb-4483-b023-10ef2946d025",
+    "StartTime": "2026-09-02T13:00:00-07:00",
+    "Duration": "01:00:00",
+    "Location": "Field A"
+  }
+]

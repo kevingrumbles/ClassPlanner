@@ -1,0 +1,50 @@
+[
+  {
+    "Id": "0f447cb4-86db-4181-97f9-8d23245147a3",
+    "FirstName": "Alice",
+    "LastName": "Smith",
+    "Email": "alice.smith@example.com",
+    "Phone": null,
+    "Notes": null
+  },
+  {
+    "Id": "3c75c8d5-50ed-40c2-9315-76821b7bb931",
+    "FirstName": "Bob",
+    "LastName": "Jones",
+    "Email": "bob.jones@example.com",
+    "Phone": null,
+    "Notes": null
+  },
+  {
+    "Id": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
+    "FirstName": "Charlie",
+    "LastName": "Brown",
+    "Email": "charlie.brown@example.com",
+    "Phone": null,
+    "Notes": null
+  },
+  {
+    "Id": "7fc403fe-3446-4197-95a2-bc66d309e950",
+    "FirstName": "David",
+    "LastName": "Wilson",
+    "Email": "david.wilson@example.com",
+    "Phone": null,
+    "Notes": null
+  },
+  {
+    "Id": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
+    "FirstName": "Emily",
+    "LastName": "Davis",
+    "Email": "emily.davis@example.com",
+    "Phone": null,
+    "Notes": null
+  },
+  {
+    "Id": "b455640d-7e5c-4f3f-94a5-06c235f9a07d",
+    "FirstName": "Frank",
+    "LastName": "Miller",
+    "Email": "frank.miller@example.com",
+    "Phone": null,
+    "Notes": null
+  }
+]

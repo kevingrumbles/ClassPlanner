@@ -1,0 +1,62 @@
+[
+  {
+    "Id": "e2b32ba8-a7aa-4ca7-b791-269989a02a1b",
+    "Name": "Agility 101",
+    "Description": null,
+    "InstructorId": null,
+    "MaximumStudents": 8,
+    "Duration": "01:00:00",
+    "Location": "Field A",
+    "Notes": null
+  },
+  {
+    "Id": "1722a70a-d186-4690-adf4-7b4b84716a07",
+    "Name": "Advanced Agility",
+    "Description": null,
+    "InstructorId": null,
+    "MaximumStudents": 6,
+    "Duration": "01:00:00",
+    "Location": "Field A",
+    "Notes": null
+  },
+  {
+    "Id": "46f28784-53fb-4527-be9e-61b1502c34ec",
+    "Name": "Puppy Foundations",
+    "Description": null,
+    "InstructorId": null,
+    "MaximumStudents": 10,
+    "Duration": "00:45:00",
+    "Location": "Field B",
+    "Notes": null
+  },
+  {
+    "Id": "53b9a7eb-8c54-4fd8-b7e1-c73d43b64e6d",
+    "Name": "Basic Obedience",
+    "Description": null,
+    "InstructorId": null,
+    "MaximumStudents": 8,
+    "Duration": "01:00:00",
+    "Location": "Field B",
+    "Notes": null
+  },
+  {
+    "Id": "7951676d-43cb-4483-b023-10ef2946d025",
+    "Name": "Jumping Skills",
+    "Description": null,
+    "InstructorId": null,
+    "MaximumStudents": 6,
+    "Duration": "01:00:00",
+    "Location": "Field A",
+    "Notes": null
+  },
+  {
+    "Id": "2650d66f-6527-41d1-9f7b-36cf86e5020f",
+    "Name": "Handling Workshop",
+    "Description": null,
+    "InstructorId": null,
+    "MaximumStudents": 12,
+    "Duration": "01:30:00",
+    "Location": "Field C",
+    "Notes": null
+  }
+]

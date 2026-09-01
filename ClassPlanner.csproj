@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+  </ItemGroup>
+
+  <!--
+    Ensures the React app (ClientApp) is built into wwwroot before the backend runs,
+    so pressing F5 always serves the latest frontend from a single ASP.NET Core process.
+  -->
+  <Target Name="EnsureClientAppNodeModules" BeforeTargets="Build" Condition="!Exists('$(MSBuildProjectDirectory)\ClientApp\node_modules') And '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)\ClientApp" />
+  </Target>
+
+  <Target Name="BuildClientApp" AfterTargets="EnsureClientAppNodeModules" BeforeTargets="Build" Condition="'$(DesignTimeBuild)' != 'true' And '$(BuildingInsideVisualStudio)' == 'true'">
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\ClientApp" />
+  </Target>
+
+</Project>

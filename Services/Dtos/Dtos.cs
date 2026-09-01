@@ -1,0 +1,75 @@
+namespace ClassPlanner.Services.Dtos;
+
+public class StudentSummaryDto
+{
+    public Guid Id { get; set; }
+    public string FirstName { get; set; } = "";
+    public string LastName { get; set; } = "";
+    public int EnrolledClassCount { get; set; }
+}
+
+public class StudentDetailDto
+{
+    public Guid Id { get; set; }
+    public string FirstName { get; set; } = "";
+    public string LastName { get; set; } = "";
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? Notes { get; set; }
+    public List<ClassSummaryDto> EnrolledClasses { get; set; } = [];
+}
+
+public class ClassSummaryDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public int MaximumStudents { get; set; }
+    public int EnrollmentCount { get; set; }
+    public TimeSpan Duration { get; set; }
+}
+
+public class ClassDetailDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public Guid? InstructorId { get; set; }
+    public int MaximumStudents { get; set; }
+    public int EnrollmentCount { get; set; }
+    public TimeSpan Duration { get; set; }
+    public string? Location { get; set; }
+    public string? Notes { get; set; }
+    public List<StudentSummaryDto> EnrolledStudents { get; set; } = [];
+}
+
+public class ScheduleDto
+{
+    public Guid Id { get; set; }
+    public Guid TrainingClassId { get; set; }
+    public string TrainingClassName { get; set; } = "";
+    public DateTime StartTime { get; set; }
+    public TimeSpan Duration { get; set; }
+    public string? Location { get; set; }
+}
+
+public class ScheduleDetailDto
+{
+    public Guid Id { get; set; }
+    public Guid TrainingClassId { get; set; }
+    public string TrainingClassName { get; set; } = "";
+    public DateTime StartTime { get; set; }
+    public TimeSpan Duration { get; set; }
+    public string? Location { get; set; }
+    public List<StudentSummaryDto> EnrolledStudents { get; set; } = [];
+}
+
+public class ScheduleClassRequest
+{
+    public Guid TrainingClassId { get; set; }
+    public DateTime StartTime { get; set; }
+}
+
+public class MoveScheduleRequest
+{
+    public DateTime StartTime { get; set; }
+}
