@@ -2,5 +2,17 @@
   {
     "Id": "591c50c0-9d1e-4268-b5ad-724972f3cb37",
     "Name": "test 2"
+  },
+  {
+    "Id": "37cf8dce-daa7-4280-a56a-923d4d619468",
+    "Name": "3rd schedule"
+  },
+  {
+    "Id": "b1c135f2-8b7f-4be5-ac9d-4c62cea92660",
+    "Name": "Summer Schedule"
+  },
+  {
+    "Id": "d1166316-bd29-45dd-91e7-914878e64ac0",
+    "Name": "Winter Schedule"
   }
 ]

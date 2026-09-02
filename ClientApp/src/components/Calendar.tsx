@@ -1,7 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { ScheduledClassEntry } from '../types/models';
 import { CalendarSlot } from './CalendarSlot';
-import { DAY_NAMES, formatHourLabel, formatTimeOfDay, parseDurationMinutes } from './format';
+import { DAY_NAMES, formatDuration, formatHourLabel, parseDurationMinutes } from './format';
 
 interface CalendarProps {
   entries: ScheduledClassEntry[];
@@ -26,21 +26,36 @@ function DraggableEntry({ entry, onSelectEntry }: DraggableEntryProps) {
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
+  const startMinutes = parseDurationMinutes(entry.startTime);
+  const minuteWithinHour = startMinutes % 60;
+  const durationMinutes = parseDurationMinutes(entry.duration);
+  const heightPercent = Math.max((durationMinutes / 60) * 100, 20);
+  const isCompact = durationMinutes <= 15;
+  const showEnrollment = durationMinutes >= 45 && entry.enrollmentCount != null;
+  const showDuration = durationMinutes >= 60;
+
   return (
     <button
       type="button"
       ref={setNodeRef}
-      style={style}
-      className={`tile calendar-entry${isDragging ? ' is-dragging' : ''}`}
+      style={{ ...style, top: `${(minuteWithinHour / 60) * 100}%`, height: `${heightPercent}%` }}
+      className={`tile calendar-entry${isDragging ? ' is-dragging' : ''}${entry.studentId ? ' calendar-entry-student' : ''}${isCompact ? ' calendar-entry-compact' : ''}`}
       onClick={() => onSelectEntry(entry.id)}
       {...listeners}
       {...attributes}
     >
-      <span className="calendar-entry-name">{entry.trainingClassName}</span>
-      <span className="calendar-entry-time">{formatTimeOfDay(entry.startTime)}</span>
+      <span className="calendar-entry-name">{entry.trainingClassName ?? entry.studentName}</span>
+      {showEnrollment && (
+        <span className="calendar-entry-meta">
+          {entry.enrollmentCount} {entry.enrollmentCount === 1 ? 'student' : 'students'}
+        </span>
+      )}
+      {showDuration && <span className="calendar-entry-meta">{formatDuration(entry.duration)}</span>}
     </button>
   );
 }
+
+const QUARTER_MINUTES = [0, 15, 30, 45] as const;
 
 /** Renders a Monday-Sunday weekly schedule grid with no specific dates, only day-of-week + time-of-day placement. */
 export function Calendar({ entries, hours, onSelectEntry, scheduleName, onDeleteSchedule }: CalendarProps) {
@@ -81,7 +96,9 @@ export function Calendar({ entries, hours, onSelectEntry, scheduleName, onDelete
             <div className="calendar-hour-label">{formatHourLabel(hour)}</div>
             {orderedDays.map((day) => (
               <div key={`${day}-${hour}`} className="calendar-cell">
-                <CalendarSlot dayOfWeek={day} hour={hour} />
+                {QUARTER_MINUTES.map((minute) => (
+                  <CalendarSlot key={minute} dayOfWeek={day} hour={hour} minute={minute} />
+                ))}
                 {entriesFor(day, hour).map((entry) => (
                   <DraggableEntry key={entry.id} entry={entry} onSelectEntry={onSelectEntry} />
                 ))}

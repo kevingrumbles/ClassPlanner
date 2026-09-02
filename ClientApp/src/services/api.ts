@@ -57,12 +57,41 @@ export function getStudent(id: string): Promise<StudentDetail> {
   return request(`/api/students/${id}`);
 }
 
+export function createStudent(firstName: string, lastName: string): Promise<StudentSummary> {
+  return request('/api/students', {
+    method: 'POST',
+    body: JSON.stringify({ firstName, lastName }),
+  });
+}
+
+export function deleteStudent(id: string): Promise<void> {
+  return request(`/api/students/${id}`, { method: 'DELETE' });
+}
+
 export function getClasses(scheduleId?: string): Promise<ClassSummary[]> {
   return request(scheduleId ? `/api/classes?scheduleId=${scheduleId}` : '/api/classes');
 }
 
+export function createClass(scheduleId: string, name: string): Promise<ClassSummary> {
+  return request(`/api/classes?scheduleId=${scheduleId}`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function getClass(id: string): Promise<ClassDetail> {
   return request(`/api/classes/${id}`);
+}
+
+export function updateClass(id: string, description: string | null, notes: string | null): Promise<ClassDetail> {
+  return request(`/api/classes/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ description, notes }),
+  });
+}
+
+export function deleteClass(id: string): Promise<void> {
+  return request(`/api/classes/${id}`, { method: 'DELETE' });
 }
 
 export function getSchedules(): Promise<ScheduleSummary[]> {
@@ -100,15 +129,29 @@ export function scheduleClass(
   });
 }
 
+export function scheduleStudent(
+  scheduleId: string,
+  studentId: string,
+  dayOfWeek: DayOfWeekIndex,
+  startTime: string
+): Promise<ScheduledClassEntry> {
+  return request(`/api/schedules/${scheduleId}/entries/student`, {
+    method: 'POST',
+    body: JSON.stringify({ studentId, dayOfWeek, startTime }),
+  });
+}
+
 export function moveScheduledClass(
   scheduleId: string,
   entryId: string,
   dayOfWeek: DayOfWeekIndex,
-  startTime: string
+  startTime: string,
+  duration?: string,
+  location?: string | null
 ): Promise<ScheduledClassEntry> {
   return request(`/api/schedules/${scheduleId}/entries/${entryId}`, {
     method: 'PUT',
-    body: JSON.stringify({ dayOfWeek, startTime }),
+    body: JSON.stringify({ dayOfWeek, startTime, duration, location }),
   });
 }
 

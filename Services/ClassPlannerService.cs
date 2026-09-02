@@ -27,6 +27,35 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             .ToList();
     }
 
+    public async Task<StudentSummaryDto> CreateStudentAsync(string firstName, string lastName)
+    {
+        var students = await dataStore.GetStudentsAsync();
+        var student = new Student { Id = Guid.NewGuid(), FirstName = firstName, LastName = lastName };
+        students.Add(student);
+        await dataStore.SaveStudentsAsync(students);
+        logger.LogInformation("Student created {StudentId}", student.Id);
+        return new StudentSummaryDto { Id = student.Id, FirstName = student.FirstName, LastName = student.LastName, EnrolledClassCount = 0 };
+    }
+
+    public async Task DeleteStudentAsync(Guid studentId)
+    {
+        var students = await dataStore.GetStudentsAsync();
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        if (student is null)
+        {
+            throw new ClassPlannerNotFoundException("Student was not found.");
+        }
+
+        students.Remove(student);
+        await dataStore.SaveStudentsAsync(students);
+
+        var enrollments = await dataStore.GetEnrollmentsAsync();
+        enrollments.RemoveAll(e => e.StudentId == studentId);
+        await dataStore.SaveEnrollmentsAsync(enrollments);
+
+        logger.LogInformation("Student deleted {StudentId}", studentId);
+    }
+
     public async Task<StudentDetailDto?> GetStudentDetailAsync(Guid id)
     {
         var student = await dataStore.GetStudentAsync(id);
@@ -54,6 +83,46 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         };
     }
 
+    public async Task<ClassSummaryDto> CreateClassAsync(Guid scheduleId, string name)
+    {
+        var schedule = await dataStore.GetScheduleAsync(scheduleId);
+        if (schedule is null)
+        {
+            throw new ClassPlannerNotFoundException("Schedule was not found.");
+        }
+
+        var classes = await dataStore.GetClassesAsync();
+        var trainingClass = new TrainingClass
+        {
+            Id = Guid.NewGuid(),
+            ScheduleId = scheduleId,
+            Name = name,
+            Duration = TimeSpan.FromMinutes(60)
+        };
+        classes.Add(trainingClass);
+        await dataStore.SaveClassesAsync(classes);
+        logger.LogInformation("Class created {ClassId}", trainingClass.Id);
+        return ToClassSummary(trainingClass, []);
+    }
+
+    public async Task<ClassDetailDto> UpdateClassAsync(Guid classId, string? description, string? notes)
+    {
+        var classes = await dataStore.GetClassesAsync();
+        var trainingClass = classes.FirstOrDefault(c => c.Id == classId);
+        if (trainingClass is null)
+        {
+            throw new ClassPlannerNotFoundException("Class was not found.");
+        }
+
+        trainingClass.Description = description;
+        trainingClass.Notes = notes;
+        await dataStore.SaveClassesAsync(classes);
+        logger.LogInformation("Class updated {ClassId}", classId);
+
+        var detail = await GetClassDetailAsync(classId);
+        return detail!;
+    }
+
     public async Task<List<ClassSummaryDto>> GetClassesAsync(Guid? scheduleId = null)
     {
         var classes = await dataStore.GetClassesAsync();
@@ -63,6 +132,29 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             classes = classes.Where(c => c.ScheduleId == scheduleId.Value).ToList();
         }
         return classes.Select(c => ToClassSummary(c, enrollments)).ToList();
+    }
+
+    public async Task DeleteClassAsync(Guid classId)
+    {
+        var classes = await dataStore.GetClassesAsync();
+        var trainingClass = classes.FirstOrDefault(c => c.Id == classId);
+        if (trainingClass is null)
+        {
+            throw new ClassPlannerNotFoundException("Class was not found.");
+        }
+
+        classes.Remove(trainingClass);
+        await dataStore.SaveClassesAsync(classes);
+
+        var enrollments = await dataStore.GetEnrollmentsAsync();
+        enrollments.RemoveAll(e => e.TrainingClassId == classId);
+        await dataStore.SaveEnrollmentsAsync(enrollments);
+
+        var scheduledClasses = await dataStore.GetScheduledClassesAsync();
+        scheduledClasses.RemoveAll(e => e.TrainingClassId == classId);
+        await dataStore.SaveScheduledClassesAsync(scheduledClasses);
+
+        logger.LogInformation("Class deleted {ClassId}", classId);
     }
 
     public async Task<ClassDetailDto?> GetClassDetailAsync(Guid id)
@@ -84,10 +176,8 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             Name = trainingClass.Name,
             Description = trainingClass.Description,
             InstructorId = trainingClass.InstructorId,
-            MaximumStudents = trainingClass.MaximumStudents,
             EnrollmentCount = enrolledStudentIds.Count,
             Duration = trainingClass.Duration,
-            Location = trainingClass.Location,
             Notes = trainingClass.Notes,
             EnrolledStudents = students
                 .Where(s => enrolledStudentIds.Contains(s.Id))
@@ -133,12 +223,6 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         if (enrollments.Any(e => e.StudentId == studentId && e.TrainingClassId == classId))
         {
             throw new ClassPlannerConflictException($"{student.FirstName} {student.LastName} is already enrolled in {trainingClass.Name}.");
-        }
-
-        var currentEnrollmentCount = enrollments.Count(e => e.TrainingClassId == classId);
-        if (currentEnrollmentCount >= trainingClass.MaximumStudents)
-        {
-            throw new ClassPlannerConflictException($"{trainingClass.Name} is already full.");
         }
 
         enrollments.Add(new Enrollment
@@ -190,7 +274,9 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         }
 
         var classes = await dataStore.GetClassesAsync();
+        var students = await dataStore.GetStudentsAsync();
         var entries = await dataStore.GetScheduledClassesAsync();
+        var enrollments = await dataStore.GetEnrollmentsAsync();
 
         return new ScheduleDetailDto
         {
@@ -198,7 +284,7 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             Name = schedule.Name,
             Entries = entries
                 .Where(e => e.ScheduleId == scheduleId)
-                .Select(e => ToEntryDto(e, classes))
+                .Select(e => ToEntryDto(e, classes, students, enrollments))
                 .ToList()
         };
     }
@@ -240,9 +326,27 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             return null;
         }
 
-        var trainingClass = await dataStore.GetClassAsync(entry.TrainingClassId);
         var students = await dataStore.GetStudentsAsync();
         var enrollments = await dataStore.GetEnrollmentsAsync();
+
+        if (entry.StudentId.HasValue)
+        {
+            var scheduledStudent = students.FirstOrDefault(s => s.Id == entry.StudentId);
+            return new ScheduledClassDetailDto
+            {
+                Id = entry.Id,
+                ScheduleId = entry.ScheduleId,
+                StudentId = entry.StudentId,
+                StudentName = FormatStudentName(scheduledStudent),
+                DayOfWeek = entry.DayOfWeek,
+                StartTime = entry.StartTime,
+                Duration = entry.Duration,
+                Location = entry.Location,
+                EnrolledStudents = []
+            };
+        }
+
+        var trainingClass = await dataStore.GetClassAsync(entry.TrainingClassId!.Value);
         var enrolledStudentIds = enrollments
             .Where(e => e.TrainingClassId == entry.TrainingClassId)
             .Select(e => e.StudentId)
@@ -288,17 +392,51 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             DayOfWeek = dayOfWeek,
             StartTime = startTime,
             Duration = trainingClass.Duration,
-            Location = trainingClass.Location
+            Location = null
         };
 
         entries.Add(entry);
         await dataStore.SaveScheduledClassesAsync(entries);
         logger.LogInformation("Class scheduled for {ClassId} on schedule {ScheduleId}", trainingClassId, scheduleId);
 
-        return ToEntryDto(entry, [trainingClass]);
+        var enrollments = await dataStore.GetEnrollmentsAsync();
+        return ToEntryDto(entry, [trainingClass], enrollments: enrollments);
     }
 
-    public async Task<ScheduledClassEntryDto> MoveScheduledClassAsync(Guid scheduleId, Guid entryId, DayOfWeek dayOfWeek, TimeSpan startTime)
+    public async Task<ScheduledClassEntryDto> ScheduleStudentAsync(Guid scheduleId, Guid studentId, DayOfWeek dayOfWeek, TimeSpan startTime)
+    {
+        var schedule = await dataStore.GetScheduleAsync(scheduleId);
+        if (schedule is null)
+        {
+            throw new ClassPlannerNotFoundException("Schedule was not found.");
+        }
+
+        var student = await dataStore.GetStudentAsync(studentId);
+        if (student is null)
+        {
+            throw new ClassPlannerNotFoundException("Student was not found.");
+        }
+
+        var entries = await dataStore.GetScheduledClassesAsync();
+        var entry = new ScheduledClass
+        {
+            Id = Guid.NewGuid(),
+            ScheduleId = scheduleId,
+            StudentId = studentId,
+            DayOfWeek = dayOfWeek,
+            StartTime = startTime,
+            Duration = TimeSpan.FromMinutes(30),
+            Location = null
+        };
+
+        entries.Add(entry);
+        await dataStore.SaveScheduledClassesAsync(entries);
+        logger.LogInformation("Student scheduled directly for {StudentId} on schedule {ScheduleId}", studentId, scheduleId);
+
+        return ToEntryDto(entry, [], [student]);
+    }
+
+    public async Task<ScheduledClassEntryDto> MoveScheduledClassAsync(Guid scheduleId, Guid entryId, DayOfWeek dayOfWeek, TimeSpan startTime, TimeSpan? duration = null, string? location = null)
     {
         var entries = await dataStore.GetScheduledClassesAsync();
         var entry = entries.FirstOrDefault(e => e.Id == entryId && e.ScheduleId == scheduleId);
@@ -309,11 +447,18 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
 
         entry.DayOfWeek = dayOfWeek;
         entry.StartTime = startTime;
+        if (duration.HasValue && duration.Value > TimeSpan.Zero)
+        {
+            entry.Duration = duration.Value;
+        }
+        entry.Location = location;
         await dataStore.SaveScheduledClassesAsync(entries);
         logger.LogInformation("Class moved for scheduled entry {EntryId}", entryId);
 
         var classes = await dataStore.GetClassesAsync();
-        return ToEntryDto(entry, classes);
+        var students = await dataStore.GetStudentsAsync();
+        var enrollments = await dataStore.GetEnrollmentsAsync();
+        return ToEntryDto(entry, classes, students, enrollments);
     }
 
     public async Task RemoveScheduledClassAsync(Guid scheduleId, Guid entryId)
@@ -335,7 +480,6 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         Id = trainingClass.Id,
         ScheduleId = trainingClass.ScheduleId,
         Name = trainingClass.Name,
-        MaximumStudents = trainingClass.MaximumStudents,
         EnrollmentCount = enrollments.Count(e => e.TrainingClassId == trainingClass.Id),
         Duration = trainingClass.Duration
     };
@@ -348,17 +492,29 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         EnrolledClassCount = enrollments.Count(e => e.StudentId == student.Id)
     };
 
-    private static ScheduledClassEntryDto ToEntryDto(ScheduledClass entry, List<TrainingClass> classes) => new()
+    private static ScheduledClassEntryDto ToEntryDto(ScheduledClass entry, List<TrainingClass> classes, List<Student>? students = null, List<Enrollment>? enrollments = null) => new()
     {
         Id = entry.Id,
         ScheduleId = entry.ScheduleId,
         TrainingClassId = entry.TrainingClassId,
-        TrainingClassName = classes.FirstOrDefault(c => c.Id == entry.TrainingClassId)?.Name ?? "Unknown class",
+        TrainingClassName = entry.TrainingClassId.HasValue
+            ? classes.FirstOrDefault(c => c.Id == entry.TrainingClassId)?.Name ?? "Unknown class"
+            : null,
+        EnrollmentCount = entry.TrainingClassId.HasValue
+            ? enrollments?.Count(e => e.TrainingClassId == entry.TrainingClassId) ?? 0
+            : null,
+        StudentId = entry.StudentId,
+        StudentName = entry.StudentId.HasValue
+            ? FormatStudentName(students?.FirstOrDefault(s => s.Id == entry.StudentId))
+            : null,
         DayOfWeek = entry.DayOfWeek,
         StartTime = entry.StartTime,
         Duration = entry.Duration,
         Location = entry.Location
     };
+
+    private static string FormatStudentName(Student? student) =>
+        student is null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
 
     /// <summary>
     /// Populates the JSON data files with sample data if they are currently empty.
@@ -414,12 +570,12 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         {
             classes =
             [
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Agility 101", MaximumStudents = 8, Duration = TimeSpan.FromMinutes(60), Location = "Field A" },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Advanced Agility", MaximumStudents = 6, Duration = TimeSpan.FromMinutes(60), Location = "Field A" },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Puppy Foundations", MaximumStudents = 10, Duration = TimeSpan.FromMinutes(45), Location = "Field B" },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Basic Obedience", MaximumStudents = 8, Duration = TimeSpan.FromMinutes(60), Location = "Field B" },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Jumping Skills", MaximumStudents = 6, Duration = TimeSpan.FromMinutes(60), Location = "Field A" },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Handling Workshop", MaximumStudents = 12, Duration = TimeSpan.FromMinutes(90), Location = "Field C" }
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Agility 101", Duration = TimeSpan.FromMinutes(60) },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Advanced Agility", Duration = TimeSpan.FromMinutes(60) },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Puppy Foundations", Duration = TimeSpan.FromMinutes(45) },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Basic Obedience", Duration = TimeSpan.FromMinutes(60) },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Jumping Skills", Duration = TimeSpan.FromMinutes(60) },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Handling Workshop", Duration = TimeSpan.FromMinutes(90) }
             ];
             await dataStore.SaveClassesAsync(classes);
             logger.LogInformation("Seeded default classes");
@@ -430,9 +586,9 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         {
             var entries = new List<ScheduledClass>
             {
-                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[0].Id, DayOfWeek = DayOfWeek.Monday, StartTime = TimeSpan.FromHours(9), Duration = classes[0].Duration, Location = classes[0].Location },
-                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[2].Id, DayOfWeek = DayOfWeek.Tuesday, StartTime = TimeSpan.FromHours(10), Duration = classes[2].Duration, Location = classes[2].Location },
-                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[4].Id, DayOfWeek = DayOfWeek.Wednesday, StartTime = TimeSpan.FromHours(13), Duration = classes[4].Duration, Location = classes[4].Location }
+                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[0].Id, DayOfWeek = DayOfWeek.Monday, StartTime = TimeSpan.FromHours(9), Duration = classes[0].Duration },
+                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[2].Id, DayOfWeek = DayOfWeek.Tuesday, StartTime = TimeSpan.FromHours(10), Duration = classes[2].Duration },
+                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[4].Id, DayOfWeek = DayOfWeek.Wednesday, StartTime = TimeSpan.FromHours(13), Duration = classes[4].Duration }
             };
             await dataStore.SaveScheduledClassesAsync(entries);
             logger.LogInformation("Seeded default scheduled classes");

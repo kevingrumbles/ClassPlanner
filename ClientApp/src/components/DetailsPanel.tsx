@@ -1,18 +1,47 @@
 import { useState } from 'react';
 import type { DayOfWeekIndex, ScheduledClassDetail, StudentDetail } from '../types/models';
-import { DAY_NAMES, formatDuration, formatHourLabel } from './format';
+import { DAY_NAMES, parseDurationMinutes } from './format';
 
 interface DetailsPanelProps {
   student?: StudentDetail;
   scheduledClassDetail?: ScheduledClassDetail;
   loading?: boolean;
   onRemoveEnrollment?: (studentId: string, classId: string) => void;
-  hours?: number[];
-  onMoveScheduledClass?: (entryId: string, dayOfWeek: DayOfWeekIndex, startTime: string) => void;
+  onDeleteStudent?: (studentId: string) => void;
   onRemoveScheduledClass?: (entryId: string) => void;
+  onSaveScheduledClass?: (
+    entryId: string,
+    dayOfWeek: DayOfWeekIndex,
+    startTime: string,
+    duration: string,
+    location: string | null
+  ) => void;
 }
 
-const DAY_OPTIONS: DayOfWeekIndex[] = [1, 2, 3, 4, 5, 6, 0];
+const DAY_OPTIONS: DayOfWeekIndex[] = [0, 1, 2, 3, 4, 5, 6];
+
+function startTimeToInputValue(startTime: string): string {
+  const totalMinutes = parseDurationMinutes(startTime);
+  const rounded = Math.round(totalMinutes / 15) * 15;
+  const hours = Math.floor(rounded / 60) % 24;
+  const minutes = rounded % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+function inputValueToStartTime(value: string): string {
+  return `${value}:00`;
+}
+
+function durationToInputMinutes(duration: string): number {
+  const totalMinutes = parseDurationMinutes(duration);
+  return Math.round(totalMinutes / 15) * 15;
+}
+
+function minutesToDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:00`;
+}
 
 /** Renders student or scheduled-class-entry details as inline focus-pane content. */
 export function DetailsPanel({
@@ -20,17 +49,10 @@ export function DetailsPanel({
   scheduledClassDetail,
   loading,
   onRemoveEnrollment,
-  hours,
-  onMoveScheduledClass,
+  onDeleteStudent,
   onRemoveScheduledClass,
+  onSaveScheduledClass,
 }: DetailsPanelProps) {
-  const [selectedDay, setSelectedDay] = useState('');
-  const [selectedHour, setSelectedHour] = useState('');
-
-  function buildStartTime(hour: string): string {
-    return `${hour.padStart(2, '0')}:00:00`;
-  }
-
   return (
     <div className="focus-panel">
       {loading && <p>Loading...</p>}
@@ -40,6 +62,15 @@ export function DetailsPanel({
           <h2>
             {student.firstName} {student.lastName}
           </h2>
+          {onDeleteStudent && (
+            <button
+              type="button"
+              className="details-delete-button"
+              onClick={() => onDeleteStudent(student.id)}
+            >
+              Delete Student
+            </button>
+          )}
           <dl>
             <dt>Email</dt>
             <dd>{student.email || '—'}</dd>
@@ -53,7 +84,7 @@ export function DetailsPanel({
           <ul>
             {student.enrolledClasses.map((c) => (
               <li key={c.id}>
-                {c.name} ({c.enrollmentCount}/{c.maximumStudents})
+                {c.name} ({c.enrollmentCount} {c.enrollmentCount === 1 ? 'student' : 'students'})
                 {onRemoveEnrollment && (
                   <button type="button" onClick={() => onRemoveEnrollment(student.id, c.id)}>
                     Remove
@@ -66,18 +97,101 @@ export function DetailsPanel({
       )}
 
       {!loading && scheduledClassDetail && (
-        <div>
-          <h2>{scheduledClassDetail.trainingClassName}</h2>
-          <dl>
-            <dt>Day</dt>
-            <dd>{DAY_NAMES[scheduledClassDetail.dayOfWeek]}</dd>
-            <dt>Start Time</dt>
-            <dd>{scheduledClassDetail.startTime}</dd>
-            <dt>Duration</dt>
-            <dd>{formatDuration(scheduledClassDetail.duration)}</dd>
-            <dt>Location</dt>
-            <dd>{scheduledClassDetail.location || '—'}</dd>
-          </dl>
+        <ScheduledClassFields
+          key={scheduledClassDetail.id}
+          scheduledClassDetail={scheduledClassDetail}
+          onRemoveScheduledClass={onRemoveScheduledClass}
+          onSaveScheduledClass={onSaveScheduledClass}
+        />
+      )}
+    </div>
+  );
+}
+
+interface ScheduledClassFieldsProps {
+  scheduledClassDetail: ScheduledClassDetail;
+  onRemoveScheduledClass?: (entryId: string) => void;
+  onSaveScheduledClass?: (
+    entryId: string,
+    dayOfWeek: DayOfWeekIndex,
+    startTime: string,
+    duration: string,
+    location: string | null
+  ) => void;
+}
+
+function ScheduledClassFields({
+  scheduledClassDetail,
+  onRemoveScheduledClass,
+  onSaveScheduledClass,
+}: ScheduledClassFieldsProps) {
+  const [dayOfWeek, setDayOfWeek] = useState(scheduledClassDetail.dayOfWeek);
+  const [startTime, setStartTime] = useState(startTimeToInputValue(scheduledClassDetail.startTime));
+  const [durationMinutes, setDurationMinutes] = useState(durationToInputMinutes(scheduledClassDetail.duration));
+  const [location, setLocation] = useState(scheduledClassDetail.location ?? '');
+
+  const isDirty =
+    dayOfWeek !== scheduledClassDetail.dayOfWeek ||
+    startTime !== startTimeToInputValue(scheduledClassDetail.startTime) ||
+    durationMinutes !== durationToInputMinutes(scheduledClassDetail.duration) ||
+    location !== (scheduledClassDetail.location ?? '');
+
+  return (
+    <div>
+      <h2>
+        {scheduledClassDetail.studentId
+          ? `${scheduledClassDetail.studentName} (Appointment)`
+          : scheduledClassDetail.trainingClassName}
+      </h2>
+      {isDirty && onSaveScheduledClass && (
+        <button
+          type="button"
+          className="class-view-save"
+          onClick={() =>
+            onSaveScheduledClass(
+              scheduledClassDetail.id,
+              dayOfWeek,
+              inputValueToStartTime(startTime),
+              minutesToDuration(durationMinutes),
+              location || null
+            )
+          }
+        >
+          Save Changes
+        </button>
+      )}
+      <dl>
+        <dt>Day</dt>
+        <dd>
+          <select value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value) as DayOfWeekIndex)}>
+            {DAY_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {DAY_NAMES[d]}
+              </option>
+            ))}
+          </select>
+        </dd>
+        <dt>Start Time</dt>
+        <dd>
+          <input type="time" step={900} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        </dd>
+        <dt>Duration (minutes)</dt>
+        <dd>
+          <input
+            type="number"
+            min={15}
+            step={15}
+            value={durationMinutes}
+            onChange={(e) => setDurationMinutes(Math.round(Number(e.target.value) / 15) * 15)}
+          />
+        </dd>
+        <dt>Location</dt>
+        <dd>
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} />
+        </dd>
+      </dl>
+      {!scheduledClassDetail.studentId && (
+        <>
           <h3>Enrolled Students</h3>
           {scheduledClassDetail.enrolledStudents.length === 0 && <p>No students enrolled.</p>}
           <ul>
@@ -87,49 +201,13 @@ export function DetailsPanel({
               </li>
             ))}
           </ul>
-          {onMoveScheduledClass && hours && (
-            <div className="details-action">
-              <label htmlFor="move-day-select">Move class</label>
-              <select id="move-day-select" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)}>
-                <option value="">Day…</option>
-                {DAY_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {DAY_NAMES[d]}
-                  </option>
-                ))}
-              </select>
-              <select id="move-hour-select" value={selectedHour} onChange={(e) => setSelectedHour(e.target.value)}>
-                <option value="">Time…</option>
-                {hours.map((h) => (
-                  <option key={h} value={h}>
-                    {formatHourLabel(h)}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!selectedDay || !selectedHour}
-                onClick={() => {
-                  onMoveScheduledClass(
-                    scheduledClassDetail.id,
-                    Number(selectedDay) as DayOfWeekIndex,
-                    buildStartTime(selectedHour)
-                  );
-                  setSelectedDay('');
-                  setSelectedHour('');
-                }}
-              >
-                Move
-              </button>
-            </div>
-          )}
-          {onRemoveScheduledClass && (
-            <div className="details-action">
-              <button type="button" onClick={() => onRemoveScheduledClass(scheduledClassDetail.id)}>
-                Remove from schedule
-              </button>
-            </div>
-          )}
+        </>
+      )}
+      {onRemoveScheduledClass && (
+        <div className="details-action">
+          <button type="button" onClick={() => onRemoveScheduledClass(scheduledClassDetail.id)}>
+            Remove from schedule
+          </button>
         </div>
       )}
     </div>

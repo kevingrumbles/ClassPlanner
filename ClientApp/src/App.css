@@ -147,6 +147,34 @@ body {
   margin: 0 0 8px;
 }
 
+.pane-section-action {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  border: 1px dashed #9ca3af;
+  background: transparent;
+  color: #374151;
+  cursor: pointer;
+}
+
+.pane-section-action:hover {
+  background: #f3f4f6;
+}
+
+.pane-section-action:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.pane-section-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .tile-list {
   display: flex;
   flex-direction: column;
@@ -238,6 +266,87 @@ body {
 
 .class-view-header h2 {
   margin: 0;
+}
+
+.class-view-delete {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #dc2626;
+  background: white;
+  color: #dc2626;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.class-view-delete:hover {
+  background: #fee2e2;
+}
+
+.class-view-delete:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.class-view-save {
+  margin-left: auto;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.class-view-save:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.class-view-save:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.class-view-textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.class-view-textarea:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.details-delete-button {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #dc2626;
+  background: white;
+  color: #dc2626;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.details-delete-button:hover {
+  background: #fee2e2;
+}
+
+.details-delete-button:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
 }
 
 .class-view-details {
@@ -351,26 +460,47 @@ body {
   min-height: 64px;
 }
 
-.calendar-slot {
+.calendar-quarter-slot {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  height: 25%;
 }
 
-.calendar-slot.is-drop-ready {
+.calendar-quarter-slot:nth-child(1) {
+  top: 0%;
+}
+
+.calendar-quarter-slot:nth-child(2) {
+  top: 25%;
+}
+
+.calendar-quarter-slot:nth-child(3) {
+  top: 50%;
+}
+
+.calendar-quarter-slot:nth-child(4) {
+  top: 75%;
+}
+
+.calendar-quarter-slot.is-drop-ready {
   background: #eff6ff;
 }
 
 .calendar-entry {
-  position: relative;
+  position: absolute;
+  left: 2px;
+  right: 2px;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  width: 100%;
+  gap: 0;
   background: #dbeafe;
   border: 1px solid #93c5fd;
   border-radius: 4px;
   padding: 4px 6px;
   font-size: 12px;
+  line-height: 1.2;
   text-align: left;
   cursor: grab;
   overflow: hidden;
@@ -378,10 +508,31 @@ body {
 
 .calendar-entry-name {
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .calendar-entry-time {
   color: #374151;
+  line-height: 1.2;
+}
+
+.calendar-entry-meta {
+  color: #374151;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.calendar-entry-compact {
+  padding: 1px 4px;
+  justify-content: center;
+}
+
+.calendar-entry-compact .calendar-entry-name {
+  font-size: 9px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .calendar-entry:focus-visible {
@@ -390,6 +541,11 @@ body {
 
 .calendar-entry.is-dragging {
   opacity: 0.5;
+}
+
+.calendar-entry.calendar-entry-student {
+  background: #dcfce7;
+  border-color: #86efac;
 }
 
 

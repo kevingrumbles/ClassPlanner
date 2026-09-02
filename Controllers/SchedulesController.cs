@@ -74,12 +74,26 @@ public class SchedulesController(ClassPlannerService service) : ControllerBase
         }
     }
 
+    [HttpPost("{scheduleId:guid}/entries/student")]
+    public async Task<IActionResult> ScheduleStudent(Guid scheduleId, [FromBody] CreateScheduledStudentRequest request)
+    {
+        try
+        {
+            var entry = await service.ScheduleStudentAsync(scheduleId, request.StudentId, request.DayOfWeek, request.StartTime);
+            return CreatedAtAction(nameof(GetScheduledClass), new { scheduleId, entryId = entry.Id }, entry);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     [HttpPut("{scheduleId:guid}/entries/{entryId:guid}")]
     public async Task<IActionResult> MoveScheduledClass(Guid scheduleId, Guid entryId, [FromBody] MoveScheduledClassRequest request)
     {
         try
         {
-            var entry = await service.MoveScheduledClassAsync(scheduleId, entryId, request.DayOfWeek, request.StartTime);
+            var entry = await service.MoveScheduledClassAsync(scheduleId, entryId, request.DayOfWeek, request.StartTime, request.Duration, request.Location);
             return Ok(entry);
         }
         catch (ClassPlannerNotFoundException ex)

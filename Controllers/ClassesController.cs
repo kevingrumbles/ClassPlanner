@@ -1,4 +1,5 @@
 using ClassPlanner.Services;
+using ClassPlanner.Services.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClassPlanner.Controllers;
@@ -14,6 +15,20 @@ public class ClassesController(ClassPlannerService service) : ControllerBase
         return Ok(classes);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> CreateClass([FromQuery] Guid scheduleId, [FromBody] CreateClassRequest request)
+    {
+        try
+        {
+            var created = await service.CreateClassAsync(scheduleId, request.Name);
+            return CreatedAtAction(nameof(GetClass), new { id = created.Id }, created);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetClass(Guid id)
     {
@@ -24,6 +39,34 @@ public class ClassesController(ClassPlannerService service) : ControllerBase
         }
 
         return Ok(trainingClass);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateClass(Guid id, [FromBody] UpdateClassRequest request)
+    {
+        try
+        {
+            var updated = await service.UpdateClassAsync(id, request.Description, request.Notes);
+            return Ok(updated);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteClass(Guid id)
+    {
+        try
+        {
+            await service.DeleteClassAsync(id);
+            return NoContent();
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
     [HttpGet("{id:guid}/students")]
@@ -44,7 +87,7 @@ public class ClassesController(ClassPlannerService service) : ControllerBase
         try
         {
             await service.EnrollStudentAsync(classId, studentId);
-            return Ok();
+            return NoContent();
         }
         catch (ClassPlannerNotFoundException ex)
         {

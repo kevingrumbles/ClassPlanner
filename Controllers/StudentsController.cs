@@ -1,4 +1,5 @@
 using ClassPlanner.Services;
+using ClassPlanner.Services.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClassPlanner.Controllers;
@@ -14,6 +15,13 @@ public class StudentsController(ClassPlannerService service) : ControllerBase
         return Ok(students);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> CreateStudent([FromBody] CreateStudentRequest request)
+    {
+        var created = await service.CreateStudentAsync(request.FirstName, request.LastName);
+        return CreatedAtAction(nameof(GetStudent), new { id = created.Id }, created);
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetStudent(Guid id)
     {
@@ -24,5 +32,19 @@ public class StudentsController(ClassPlannerService service) : ControllerBase
         }
 
         return Ok(student);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteStudent(Guid id)
+    {
+        try
+        {
+            await service.DeleteStudentAsync(id);
+            return NoContent();
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 }

@@ -9,8 +9,6 @@ interface ClassTileProps {
 }
 
 export function ClassTile({ trainingClass, onSelect, isDropTarget }: ClassTileProps) {
-  const isFull = trainingClass.enrollmentCount >= trainingClass.maximumStudents;
-
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: `class:${trainingClass.id}`,
     data: { type: 'class', classId: trainingClass.id },
@@ -28,8 +26,7 @@ export function ClassTile({ trainingClass, onSelect, isDropTarget }: ClassTilePr
 
   const classNames = ['tile', 'class-tile'];
   if (isDragging) classNames.push('is-dragging');
-  if (isDropTarget && isOver && isStudentDragActive && !isFull) classNames.push('is-drop-ready');
-  if (isDropTarget && isOver && isStudentDragActive && isFull) classNames.push('is-drop-rejected');
+  if (isDropTarget && isOver && isStudentDragActive) classNames.push('is-drop-ready');
 
   return (
     <button
@@ -46,8 +43,7 @@ export function ClassTile({ trainingClass, onSelect, isDropTarget }: ClassTilePr
     >
       <span className="tile-title">{trainingClass.name}</span>
       <span className="tile-subtitle">
-        {trainingClass.enrollmentCount} / {trainingClass.maximumStudents} students
-        {isFull ? ' (full)' : ''}
+        {trainingClass.enrollmentCount} {trainingClass.enrollmentCount === 1 ? 'student' : 'students'}
       </span>
       <span className="tile-subtitle">{formatDuration(trainingClass.duration)}</span>
     </button>

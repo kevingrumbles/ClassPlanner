@@ -185,9 +185,29 @@ function App() {
     }
   }
 
-  async function handleMoveScheduledClass(entryId: string, dayOfWeek: DayOfWeekIndex, startTime: string) {
+  async function handleScheduleStudent(studentId: string, dayOfWeek: DayOfWeekIndex, startTime: string) {
+    if (!activeScheduleId) return;
+    try {
+      await api.scheduleStudent(activeScheduleId, studentId, dayOfWeek, startTime);
+      setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
+      setSchedules(await api.getSchedules());
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to schedule student.');
+    }
+  }
+
+  async function handleMoveScheduledClass(
+    entryId: string,
+    dayOfWeek: DayOfWeekIndex,
+    startTime: string,
+    duration?: string,
+    location?: string | null
+  ) {
     if (!activeScheduleId) return;
     const previousDetail = activeScheduleDetail;
+    const existing = activeScheduleDetail?.entries.find((e) => e.id === entryId);
+    const resolvedDuration = duration ?? existing?.duration;
+    const resolvedLocation = location !== undefined ? location : existing?.location;
     setActiveScheduleDetail((prev) =>
       prev
         ? { ...prev, entries: prev.entries.map((e) => (e.id === entryId ? { ...e, dayOfWeek, startTime } : e)) }
@@ -195,7 +215,7 @@ function App() {
     );
 
     try {
-      await api.moveScheduledClass(activeScheduleId, entryId, dayOfWeek, startTime);
+      await api.moveScheduledClass(activeScheduleId, entryId, dayOfWeek, startTime, resolvedDuration, resolvedLocation);
       setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
       if (selected?.type === 'scheduledClass' && selected.entryId === entryId) {
         setScheduledClassDetail(await api.getScheduledClassDetail(activeScheduleId, entryId));
@@ -235,6 +255,81 @@ function App() {
     }
   }
 
+  async function handleCreateClass() {
+    if (!activeScheduleId) return;
+    const name = window.prompt('Class name');
+    if (!name) return;
+    try {
+      const created = await api.createClass(activeScheduleId, name);
+      setClasses((prev) => [...prev, created]);
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to create class.');
+    }
+  }
+
+  async function handleCreateStudent() {
+    const firstName = window.prompt('Student first name');
+    if (!firstName) return;
+    const lastName = window.prompt('Student last name');
+    if (!lastName) return;
+    try {
+      const created = await api.createStudent(firstName, lastName);
+      setStudents((prev) => [...prev, created]);
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to create student.');
+    }
+  }
+
+  async function handleDeleteClass(classId: string) {
+    if (!window.confirm('Delete this class? This will remove all its enrollments and scheduled entries.')) return;
+    try {
+      await api.deleteClass(classId);
+      setClasses((prev) => prev.filter((c) => c.id !== classId));
+      if (selected?.type === 'class' && selected.id === classId) {
+        setSelected(null);
+      }
+      setSchedules(await api.getSchedules());
+      if (activeScheduleId) {
+        setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
+      }
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to delete class.');
+    }
+  }
+
+  async function handleSaveClass(classId: string, description: string | null, notes: string | null) {
+    try {
+      const updated = await api.updateClass(classId, description, notes);
+      setClassDetail(updated);
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to save class changes.');
+    }
+  }
+
+  async function handleSaveScheduledClass(
+    entryId: string,
+    dayOfWeek: DayOfWeekIndex,
+    startTime: string,
+    duration: string,
+    location: string | null
+  ) {
+    await handleMoveScheduledClass(entryId, dayOfWeek, startTime, duration, location);
+  }
+
+  async function handleDeleteStudent(studentId: string) {
+    if (!window.confirm('Delete this student? This will remove all their enrollments.')) return;
+    try {
+      await api.deleteStudent(studentId);
+      setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      if (selected?.type === 'student' && selected.id === studentId) {
+        setSelected(null);
+      }
+      setClasses(await api.getClasses(activeScheduleId ?? undefined));
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to delete student.');
+    }
+  }
+
   async function handleDeleteSchedule() {
     if (!activeScheduleId) return;
     if (!window.confirm('Delete this schedule and all its scheduled classes?')) return;
@@ -259,7 +354,7 @@ function App() {
       setActiveDragLabel(trainingClass?.name ?? null);
     } else if (data?.type === 'scheduled') {
       const entry = activeScheduleDetail?.entries.find((e) => e.id === data.entryId);
-      setActiveDragLabel(entry?.trainingClassName ?? null);
+      setActiveDragLabel(entry?.trainingClassName ?? entry?.studentName ?? null);
     }
   }
 
@@ -278,10 +373,13 @@ function App() {
 
     if (overData?.type === 'slot') {
       const dayOfWeek = overData.dayOfWeek as DayOfWeekIndex;
-      const startTime = `${(overData.hour as number).toString().padStart(2, '0')}:00:00`;
+      const minute = (overData.minute as number | undefined) ?? 0;
+      const startTime = `${(overData.hour as number).toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
 
       if (activeData?.type === 'class') {
         handleScheduleClass(activeData.classId as string, dayOfWeek, startTime);
+      } else if (activeData?.type === 'student') {
+        handleScheduleStudent(activeData.studentId as string, dayOfWeek, startTime);
       } else if (activeData?.type === 'scheduled') {
         handleMoveScheduledClass(activeData.entryId as string, dayOfWeek, startTime);
       }
@@ -333,6 +431,9 @@ function App() {
 
           <aside className="left-pane">
             <h2>Classes</h2>
+            <button type="button" className="pane-section-action" onClick={handleCreateClass} disabled={!activeScheduleId}>
+              New Class
+            </button>
             <div className="tile-list">
               {classes.map((trainingClass) => (
                 <ClassTile
@@ -350,6 +451,8 @@ function App() {
               <ClassView
                 trainingClass={classDetail}
                 onRemoveEnrollment={handleRemoveEnrollment}
+                onDeleteClass={handleDeleteClass}
+                onSaveClass={handleSaveClass}
               />
             ) : selected ? (
               <DetailsPanel
@@ -357,9 +460,9 @@ function App() {
                 student={studentDetail}
                 scheduledClassDetail={scheduledClassDetail}
                 onRemoveEnrollment={handleRemoveEnrollment}
-                hours={HOURS}
-                onMoveScheduledClass={handleMoveScheduledClass}
+                onDeleteStudent={handleDeleteStudent}
                 onRemoveScheduledClass={handleRemoveScheduledClass}
+                onSaveScheduledClass={handleSaveScheduledClass}
               />
             ) : (
               <Calendar
@@ -375,6 +478,9 @@ function App() {
 
           <aside className="right-pane">
             <h2>Students</h2>
+            <button type="button" className="pane-section-action" onClick={handleCreateStudent}>
+              New Student
+            </button>
             <div className="tile-list">
               {students.map((student) => (
                 <StudentTile key={student.id} student={student} onSelect={(id) => setSelected({ type: 'student', id })} />
