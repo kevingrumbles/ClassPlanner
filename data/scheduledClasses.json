@@ -18,5 +18,15 @@
     "StartTime": "09:15:00",
     "Duration": "01:15:00",
     "Location": null
+  },
+  {
+    "Id": "86424367-3f6a-4048-a5d1-fae62b5574ee",
+    "ScheduleId": "37cf8dce-daa7-4280-a56a-923d4d619468",
+    "TrainingClassId": "10ed975f-1210-4eac-aecd-9565d305e24e",
+    "StudentId": null,
+    "DayOfWeek": 2,
+    "StartTime": "09:15:00",
+    "Duration": "01:00:00",
+    "Location": null
   }
 ]

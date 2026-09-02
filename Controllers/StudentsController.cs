@@ -47,4 +47,18 @@ public class StudentsController(ClassPlannerService service) : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateStudent(Guid id, [FromBody] UpdateStudentRequest request)
+    {
+        try
+        {
+            var updated = await service.UpdateStudentAsync(id, request.Email, request.Phone, request.Notes);
+            return Ok(updated);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
 }

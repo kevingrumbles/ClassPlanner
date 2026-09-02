@@ -68,6 +68,18 @@ export function deleteStudent(id: string): Promise<void> {
   return request(`/api/students/${id}`, { method: 'DELETE' });
 }
 
+export function updateStudent(
+  id: string,
+  email: string | null,
+  phone: string | null,
+  notes: string | null
+): Promise<StudentDetail> {
+  return request(`/api/students/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ email, phone, notes }),
+  });
+}
+
 export function getClasses(scheduleId?: string): Promise<ClassSummary[]> {
   return request(scheduleId ? `/api/classes?scheduleId=${scheduleId}` : '/api/classes');
 }

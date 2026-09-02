@@ -14,5 +14,13 @@
     "Description": null,
     "InstructorId": null,
     "Notes": null
+  },
+  {
+    "Id": "10ed975f-1210-4eac-aecd-9565d305e24e",
+    "ScheduleId": "37cf8dce-daa7-4280-a56a-923d4d619468",
+    "Name": "3rd schedule class",
+    "Description": null,
+    "InstructorId": null,
+    "Notes": null
   }
 ]

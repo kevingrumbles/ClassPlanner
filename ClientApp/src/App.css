@@ -252,6 +252,16 @@ body {
   background: #f0fdf4;
 }
 
+.class-view-members-drop {
+  border-radius: 6px;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+.class-view-members-drop.is-drop-ready {
+  border: 1px dashed #22c55e;
+  background: #f0fdf4;
+}
+
 .class-view.is-drop-rejected {
   border-color: #dc2626;
   background: #fef2f2;
@@ -334,6 +344,21 @@ body {
   outline-offset: 2px;
 }
 
+.class-view-input {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  box-sizing: border-box;
+}
+
+.class-view-input:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
 .details-delete-button {
   font: inherit;
   font-size: 13px;
@@ -344,6 +369,11 @@ body {
   color: #dc2626;
   cursor: pointer;
   margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.class-view-header-actions .details-delete-button {
+  margin-bottom: 0;
 }
 
 .details-delete-button:hover {

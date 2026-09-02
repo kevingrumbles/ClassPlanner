@@ -37,6 +37,25 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         return new StudentSummaryDto { Id = student.Id, FirstName = student.FirstName, LastName = student.LastName, EnrolledClassCount = 0 };
     }
 
+    public async Task<StudentDetailDto> UpdateStudentAsync(Guid studentId, string? email, string? phone, string? notes)
+    {
+        var students = await dataStore.GetStudentsAsync();
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        if (student is null)
+        {
+            throw new ClassPlannerNotFoundException("Student was not found.");
+        }
+
+        student.Email = email;
+        student.Phone = phone;
+        student.Notes = notes;
+        await dataStore.SaveStudentsAsync(students);
+        logger.LogInformation("Student updated {StudentId}", studentId);
+
+        var detail = await GetStudentDetailAsync(studentId);
+        return detail!;
+    }
+
     public async Task DeleteStudentAsync(Guid studentId)
     {
         var students = await dataStore.GetStudentsAsync();

@@ -16,7 +16,7 @@ export function ScheduleTile({ schedule, isActive, onSelect }: ScheduleTileProps
     >
       <span className="tile-title">{schedule.name}</span>
       <span className="tile-subtitle">
-        {schedule.entryCount} {schedule.entryCount === 1 ? 'class' : 'classes'}
+        {schedule.entryCount} {schedule.entryCount === 1 ? 'class scheduled' : 'classes scheduled'}
       </span>
     </button>
   );

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import type { DayOfWeekIndex, ScheduledClassDetail, StudentDetail } from '../types/models';
 import { DAY_NAMES, parseDurationMinutes } from './format';
 
@@ -8,6 +9,7 @@ interface DetailsPanelProps {
   loading?: boolean;
   onRemoveEnrollment?: (studentId: string, classId: string) => void;
   onDeleteStudent?: (studentId: string) => void;
+  onSaveStudent?: (studentId: string, email: string | null, phone: string | null, notes: string | null) => void;
   onRemoveScheduledClass?: (entryId: string) => void;
   onSaveScheduledClass?: (
     entryId: string,
@@ -51,6 +53,7 @@ export function DetailsPanel({
   loading,
   onRemoveEnrollment,
   onDeleteStudent,
+  onSaveStudent,
   onRemoveScheduledClass,
   onSaveScheduledClass,
   onSaveClass,
@@ -60,42 +63,13 @@ export function DetailsPanel({
       {loading && <p>Loading...</p>}
 
       {!loading && student && (
-        <div>
-          <h2>
-            {student.firstName} {student.lastName}
-          </h2>
-          {onDeleteStudent && (
-            <button
-              type="button"
-              className="details-delete-button"
-              onClick={() => onDeleteStudent(student.id)}
-            >
-              Delete Student
-            </button>
-          )}
-          <dl>
-            <dt>Email</dt>
-            <dd>{student.email || '—'}</dd>
-            <dt>Phone</dt>
-            <dd>{student.phone || '—'}</dd>
-            <dt>Notes</dt>
-            <dd>{student.notes || '—'}</dd>
-          </dl>
-          <h3>Enrolled Classes</h3>
-          {student.enrolledClasses.length === 0 && <p>Not enrolled in any classes.</p>}
-          <ul>
-            {student.enrolledClasses.map((c) => (
-              <li key={c.id}>
-                {c.name} ({c.enrollmentCount} {c.enrollmentCount === 1 ? 'student' : 'students'})
-                {onRemoveEnrollment && (
-                  <button type="button" onClick={() => onRemoveEnrollment(student.id, c.id)}>
-                    Remove
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <StudentFields
+          key={student.id}
+          student={student}
+          onRemoveEnrollment={onRemoveEnrollment}
+          onDeleteStudent={onDeleteStudent}
+          onSaveStudent={onSaveStudent}
+        />
       )}
 
       {!loading && scheduledClassDetail && (
@@ -108,6 +82,85 @@ export function DetailsPanel({
           onSaveClass={onSaveClass}
         />
       )}
+    </div>
+  );
+}
+
+interface StudentFieldsProps {
+  student: StudentDetail;
+  onRemoveEnrollment?: (studentId: string, classId: string) => void;
+  onDeleteStudent?: (studentId: string) => void;
+  onSaveStudent?: (studentId: string, email: string | null, phone: string | null, notes: string | null) => void;
+}
+
+function StudentFields({ student, onRemoveEnrollment, onDeleteStudent, onSaveStudent }: StudentFieldsProps) {
+  const [email, setEmail] = useState(student.email ?? '');
+  const [phone, setPhone] = useState(student.phone ?? '');
+  const [notes, setNotes] = useState(student.notes ?? '');
+
+  const isDirty =
+    email !== (student.email ?? '') || phone !== (student.phone ?? '') || notes !== (student.notes ?? '');
+
+  return (
+    <div>
+      <div className="class-view-header">
+        <h2>
+          {student.firstName} {student.lastName}
+        </h2>
+        <div className="class-view-header-actions">
+          {isDirty && onSaveStudent && (
+            <button
+              type="button"
+              className="class-view-save"
+              onClick={() => onSaveStudent(student.id, email || null, phone || null, notes || null)}
+            >
+              Save Changes
+            </button>
+          )}
+          {onDeleteStudent && (
+            <button
+              type="button"
+              className="details-delete-button"
+              onClick={() => onDeleteStudent(student.id)}
+            >
+              Delete Student
+            </button>
+          )}
+        </div>
+      </div>
+      <dl>
+        <dt>Email</dt>
+        <dd>
+          <input type="text" className="class-view-input" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </dd>
+        <dt>Phone</dt>
+        <dd>
+          <input type="text" className="class-view-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </dd>
+        <dt>Notes</dt>
+        <dd>
+          <textarea
+            className="class-view-textarea"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+          />
+        </dd>
+      </dl>
+      <h3>Enrolled Classes</h3>
+      {student.enrolledClasses.length === 0 && <p>Not enrolled in any classes.</p>}
+      <ul>
+        {student.enrolledClasses.map((c) => (
+          <li key={c.id}>
+            {c.name} ({c.enrollmentCount} {c.enrollmentCount === 1 ? 'student' : 'students'})
+            {onRemoveEnrollment && (
+              <button type="button" onClick={() => onRemoveEnrollment(student.id, c.id)}>
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -147,6 +200,14 @@ function ScheduledClassFields({
     location !== (scheduledClassDetail.location ?? '') ||
     classDescription !== (scheduledClassDetail.classDescription ?? '') ||
     classNotes !== (scheduledClassDetail.classNotes ?? '');
+
+  const { setNodeRef, isOver, active } = useDroppable({
+    id: `scheduled-class-view:${scheduledClassDetail.id}`,
+    data: { type: 'classView', classId: scheduledClassDetail.trainingClassId },
+  });
+
+  const isStudentDragActive = active?.data.current?.type === 'student';
+  const isDropReady = !scheduledClassDetail.studentId && isOver && isStudentDragActive;
 
   return (
     <div>
@@ -241,8 +302,9 @@ function ScheduledClassFields({
         )}
       </dl>
       {!scheduledClassDetail.studentId && (
-        <>
+        <div ref={setNodeRef} className={`class-view-members-drop${isDropReady ? ' is-drop-ready' : ''}`}>
           <h3>Enrolled Students</h3>
+          <p className="class-view-hint">Drag a student here to enroll them in this class.</p>
           {scheduledClassDetail.enrolledStudents.length === 0 && <p>No students enrolled.</p>}
           <ul>
             {scheduledClassDetail.enrolledStudents.map((s) => (
@@ -259,7 +321,7 @@ function ScheduledClassFields({
               </li>
             ))}
           </ul>
-        </>
+        </div>
       )}
       {onRemoveScheduledClass && (
         <div className="details-action">

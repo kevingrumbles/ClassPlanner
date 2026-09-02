@@ -299,6 +299,20 @@ function App() {
     }
   }
 
+  async function handleSaveStudent(
+    studentId: string,
+    email: string | null,
+    phone: string | null,
+    notes: string | null
+  ) {
+    try {
+      const updated = await api.updateStudent(studentId, email, phone, notes);
+      setStudentDetail(updated);
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to save student changes.');
+    }
+  }
+
   async function handleSaveClass(classId: string, description: string | null, notes: string | null) {
     try {
       const updated = await api.updateClass(classId, description, notes);
@@ -466,6 +480,7 @@ function App() {
                 scheduledClassDetail={scheduledClassDetail}
                 onRemoveEnrollment={handleRemoveEnrollment}
                 onDeleteStudent={handleDeleteStudent}
+                onSaveStudent={handleSaveStudent}
                 onRemoveScheduledClass={handleRemoveScheduledClass}
                 onSaveScheduledClass={handleSaveScheduledClass}
                 onSaveClass={handleSaveClass}

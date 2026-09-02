@@ -107,6 +107,13 @@ public class CreateStudentRequest
     public string LastName { get; set; } = "";
 }
 
+public class UpdateStudentRequest
+{
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? Notes { get; set; }
+}
+
 public class CreateScheduledClassRequest
 {
     public Guid TrainingClassId { get; set; }
