@@ -96,8 +96,7 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         {
             Id = Guid.NewGuid(),
             ScheduleId = scheduleId,
-            Name = name,
-            Duration = TimeSpan.FromMinutes(60)
+            Name = name
         };
         classes.Add(trainingClass);
         await dataStore.SaveClassesAsync(classes);
@@ -177,7 +176,6 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             Description = trainingClass.Description,
             InstructorId = trainingClass.InstructorId,
             EnrollmentCount = enrolledStudentIds.Count,
-            Duration = trainingClass.Duration,
             Notes = trainingClass.Notes,
             EnrolledStudents = students
                 .Where(s => enrolledStudentIds.Contains(s.Id))
@@ -358,6 +356,8 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             ScheduleId = entry.ScheduleId,
             TrainingClassId = entry.TrainingClassId,
             TrainingClassName = trainingClass?.Name ?? "Unknown class",
+            ClassDescription = trainingClass?.Description,
+            ClassNotes = trainingClass?.Notes,
             DayOfWeek = entry.DayOfWeek,
             StartTime = entry.StartTime,
             Duration = entry.Duration,
@@ -391,7 +391,7 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             TrainingClassId = trainingClassId,
             DayOfWeek = dayOfWeek,
             StartTime = startTime,
-            Duration = trainingClass.Duration,
+            Duration = TimeSpan.FromMinutes(60),
             Location = null
         };
 
@@ -480,8 +480,7 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         Id = trainingClass.Id,
         ScheduleId = trainingClass.ScheduleId,
         Name = trainingClass.Name,
-        EnrollmentCount = enrollments.Count(e => e.TrainingClassId == trainingClass.Id),
-        Duration = trainingClass.Duration
+        EnrollmentCount = enrollments.Count(e => e.TrainingClassId == trainingClass.Id)
     };
 
     private static StudentSummaryDto ToStudentSummary(Student student, List<Enrollment> enrollments) => new()
@@ -570,12 +569,12 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         {
             classes =
             [
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Agility 101", Duration = TimeSpan.FromMinutes(60) },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Advanced Agility", Duration = TimeSpan.FromMinutes(60) },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Puppy Foundations", Duration = TimeSpan.FromMinutes(45) },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Basic Obedience", Duration = TimeSpan.FromMinutes(60) },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Jumping Skills", Duration = TimeSpan.FromMinutes(60) },
-                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Handling Workshop", Duration = TimeSpan.FromMinutes(90) }
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Agility 101" },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Advanced Agility" },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Puppy Foundations" },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Basic Obedience" },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Jumping Skills" },
+                new TrainingClass { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, Name = "Handling Workshop" }
             ];
             await dataStore.SaveClassesAsync(classes);
             logger.LogInformation("Seeded default classes");
@@ -586,9 +585,9 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         {
             var entries = new List<ScheduledClass>
             {
-                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[0].Id, DayOfWeek = DayOfWeek.Monday, StartTime = TimeSpan.FromHours(9), Duration = classes[0].Duration },
-                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[2].Id, DayOfWeek = DayOfWeek.Tuesday, StartTime = TimeSpan.FromHours(10), Duration = classes[2].Duration },
-                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[4].Id, DayOfWeek = DayOfWeek.Wednesday, StartTime = TimeSpan.FromHours(13), Duration = classes[4].Duration }
+                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[0].Id, DayOfWeek = DayOfWeek.Monday, StartTime = TimeSpan.FromHours(9), Duration = TimeSpan.FromMinutes(60) },
+                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[2].Id, DayOfWeek = DayOfWeek.Tuesday, StartTime = TimeSpan.FromHours(10), Duration = TimeSpan.FromMinutes(45) },
+                new() { Id = Guid.NewGuid(), ScheduleId = defaultScheduleId, TrainingClassId = classes[4].Id, DayOfWeek = DayOfWeek.Wednesday, StartTime = TimeSpan.FromHours(13), Duration = TimeSpan.FromMinutes(60) }
             };
             await dataStore.SaveScheduledClassesAsync(entries);
             logger.LogInformation("Seeded default scheduled classes");

@@ -25,7 +25,6 @@ public class ClassSummaryDto
     public Guid ScheduleId { get; set; }
     public string Name { get; set; } = "";
     public int EnrollmentCount { get; set; }
-    public TimeSpan Duration { get; set; }
 }
 
 public class ClassDetailDto
@@ -36,7 +35,6 @@ public class ClassDetailDto
     public string? Description { get; set; }
     public Guid? InstructorId { get; set; }
     public int EnrollmentCount { get; set; }
-    public TimeSpan Duration { get; set; }
     public string? Notes { get; set; }
     public List<StudentSummaryDto> EnrolledStudents { get; set; } = [];
 }
@@ -76,6 +74,8 @@ public class ScheduledClassDetailDto
     public Guid ScheduleId { get; set; }
     public Guid? TrainingClassId { get; set; }
     public string? TrainingClassName { get; set; }
+    public string? ClassDescription { get; set; }
+    public string? ClassNotes { get; set; }
     public Guid? StudentId { get; set; }
     public string? StudentName { get; set; }
     public DayOfWeek DayOfWeek { get; set; }

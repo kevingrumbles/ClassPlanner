@@ -1,29 +1,10 @@
 [
   {
-    "Id": "588824c7-4cfd-4805-9ddc-69abdf0275c0",
-    "ScheduleId": "591c50c0-9d1e-4268-b5ad-724972f3cb37",
-    "Name": "test 2",
-    "Description": "test scription",
-    "InstructorId": null,
-    "Duration": "01:00:00",
-    "Notes": null
-  },
-  {
     "Id": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
     "ScheduleId": "591c50c0-9d1e-4268-b5ad-724972f3cb37",
     "Name": "class test",
     "Description": null,
     "InstructorId": null,
-    "Duration": "01:00:00",
-    "Notes": null
-  },
-  {
-    "Id": "636afef6-b36a-49ff-ab81-58193513e442",
-    "ScheduleId": "591c50c0-9d1e-4268-b5ad-724972f3cb37",
-    "Name": "3",
-    "Description": null,
-    "InstructorId": null,
-    "Duration": "01:00:00",
     "Notes": null
   },
   {
@@ -32,7 +13,6 @@
     "Name": "4",
     "Description": null,
     "InstructorId": null,
-    "Duration": "01:00:00",
     "Notes": null
   }
 ]

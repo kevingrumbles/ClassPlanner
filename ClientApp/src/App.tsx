@@ -167,6 +167,8 @@ function App() {
       setStudentDetail(await api.getStudent(selected.id));
     } else if (selected.type === 'class') {
       setClassDetail(await api.getClass(selected.id));
+    } else if (selected.type === 'scheduledClass') {
+      setScheduledClassDetail(await api.getScheduledClassDetail(selected.scheduleId, selected.entryId));
     }
     // refresh summary lists to stay in sync
     const [studentsData, classesData] = await Promise.all([api.getStudents(), api.getClasses(activeScheduleId ?? undefined)]);
@@ -301,6 +303,9 @@ function App() {
     try {
       const updated = await api.updateClass(classId, description, notes);
       setClassDetail(updated);
+      if (selected?.type === 'scheduledClass') {
+        setScheduledClassDetail(await api.getScheduledClassDetail(selected.scheduleId, selected.entryId));
+      }
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to save class changes.');
     }
@@ -463,6 +468,7 @@ function App() {
                 onDeleteStudent={handleDeleteStudent}
                 onRemoveScheduledClass={handleRemoveScheduledClass}
                 onSaveScheduledClass={handleSaveScheduledClass}
+                onSaveClass={handleSaveClass}
               />
             ) : (
               <Calendar

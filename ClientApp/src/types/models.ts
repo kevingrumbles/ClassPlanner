@@ -10,7 +10,6 @@ export interface ClassSummary {
   scheduleId: string;
   name: string;
   enrollmentCount: number;
-  duration: string; // ISO 8601 duration (TimeSpan serialized by System.Text.Json, e.g. "01:00:00")
 }
 
 export interface StudentDetail {
@@ -30,7 +29,6 @@ export interface ClassDetail {
   description?: string | null;
   instructorId?: string | null;
   enrollmentCount: number;
-  duration: string;
   notes?: string | null;
   enrolledStudents: StudentSummary[];
 }
@@ -68,6 +66,8 @@ export interface ScheduleDetail {
 }
 
 export interface ScheduledClassDetail extends ScheduledClassEntry {
+  classDescription?: string | null;
+  classNotes?: string | null;
   enrolledStudents: StudentSummary[];
 }
 

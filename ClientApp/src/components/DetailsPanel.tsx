@@ -16,6 +16,7 @@ interface DetailsPanelProps {
     duration: string,
     location: string | null
   ) => void;
+  onSaveClass?: (classId: string, description: string | null, notes: string | null) => void;
 }
 
 const DAY_OPTIONS: DayOfWeekIndex[] = [0, 1, 2, 3, 4, 5, 6];
@@ -52,6 +53,7 @@ export function DetailsPanel({
   onDeleteStudent,
   onRemoveScheduledClass,
   onSaveScheduledClass,
+  onSaveClass,
 }: DetailsPanelProps) {
   return (
     <div className="focus-panel">
@@ -102,6 +104,8 @@ export function DetailsPanel({
           scheduledClassDetail={scheduledClassDetail}
           onRemoveScheduledClass={onRemoveScheduledClass}
           onSaveScheduledClass={onSaveScheduledClass}
+          onRemoveEnrollment={onRemoveEnrollment}
+          onSaveClass={onSaveClass}
         />
       )}
     </div>
@@ -118,23 +122,31 @@ interface ScheduledClassFieldsProps {
     duration: string,
     location: string | null
   ) => void;
+  onRemoveEnrollment?: (studentId: string, classId: string) => void;
+  onSaveClass?: (classId: string, description: string | null, notes: string | null) => void;
 }
 
 function ScheduledClassFields({
   scheduledClassDetail,
   onRemoveScheduledClass,
   onSaveScheduledClass,
+  onRemoveEnrollment,
+  onSaveClass,
 }: ScheduledClassFieldsProps) {
   const [dayOfWeek, setDayOfWeek] = useState(scheduledClassDetail.dayOfWeek);
   const [startTime, setStartTime] = useState(startTimeToInputValue(scheduledClassDetail.startTime));
   const [durationMinutes, setDurationMinutes] = useState(durationToInputMinutes(scheduledClassDetail.duration));
   const [location, setLocation] = useState(scheduledClassDetail.location ?? '');
+  const [classDescription, setClassDescription] = useState(scheduledClassDetail.classDescription ?? '');
+  const [classNotes, setClassNotes] = useState(scheduledClassDetail.classNotes ?? '');
 
   const isDirty =
     dayOfWeek !== scheduledClassDetail.dayOfWeek ||
     startTime !== startTimeToInputValue(scheduledClassDetail.startTime) ||
     durationMinutes !== durationToInputMinutes(scheduledClassDetail.duration) ||
-    location !== (scheduledClassDetail.location ?? '');
+    location !== (scheduledClassDetail.location ?? '') ||
+    classDescription !== (scheduledClassDetail.classDescription ?? '') ||
+    classNotes !== (scheduledClassDetail.classNotes ?? '');
 
   return (
     <div>
@@ -143,19 +155,35 @@ function ScheduledClassFields({
           ? `${scheduledClassDetail.studentName} (Appointment)`
           : scheduledClassDetail.trainingClassName}
       </h2>
-      {isDirty && onSaveScheduledClass && (
+      {isDirty && (onSaveScheduledClass || onSaveClass) && (
         <button
           type="button"
           className="class-view-save"
-          onClick={() =>
-            onSaveScheduledClass(
-              scheduledClassDetail.id,
-              dayOfWeek,
-              inputValueToStartTime(startTime),
-              minutesToDuration(durationMinutes),
-              location || null
-            )
-          }
+          onClick={() => {
+            if (
+              onSaveScheduledClass &&
+              (dayOfWeek !== scheduledClassDetail.dayOfWeek ||
+                startTime !== startTimeToInputValue(scheduledClassDetail.startTime) ||
+                durationMinutes !== durationToInputMinutes(scheduledClassDetail.duration) ||
+                location !== (scheduledClassDetail.location ?? ''))
+            ) {
+              onSaveScheduledClass(
+                scheduledClassDetail.id,
+                dayOfWeek,
+                inputValueToStartTime(startTime),
+                minutesToDuration(durationMinutes),
+                location || null
+              );
+            }
+            if (
+              onSaveClass &&
+              scheduledClassDetail.trainingClassId &&
+              (classDescription !== (scheduledClassDetail.classDescription ?? '') ||
+                classNotes !== (scheduledClassDetail.classNotes ?? ''))
+            ) {
+              onSaveClass(scheduledClassDetail.trainingClassId, classDescription || null, classNotes || null);
+            }
+          }}
         >
           Save Changes
         </button>
@@ -189,6 +217,28 @@ function ScheduledClassFields({
         <dd>
           <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} />
         </dd>
+        {!scheduledClassDetail.studentId && (
+          <>
+            <dt>Description</dt>
+            <dd>
+              <textarea
+                className="class-view-textarea"
+                value={classDescription}
+                onChange={(e) => setClassDescription(e.target.value)}
+                rows={2}
+              />
+            </dd>
+            <dt>Notes</dt>
+            <dd>
+              <textarea
+                className="class-view-textarea"
+                value={classNotes}
+                onChange={(e) => setClassNotes(e.target.value)}
+                rows={2}
+              />
+            </dd>
+          </>
+        )}
       </dl>
       {!scheduledClassDetail.studentId && (
         <>
@@ -198,6 +248,14 @@ function ScheduledClassFields({
             {scheduledClassDetail.enrolledStudents.map((s) => (
               <li key={s.id}>
                 {s.firstName} {s.lastName}
+                {onRemoveEnrollment && scheduledClassDetail.trainingClassId && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveEnrollment(s.id, scheduledClassDetail.trainingClassId!)}
+                  >
+                    Remove
+                  </button>
+                )}
               </li>
             ))}
           </ul>

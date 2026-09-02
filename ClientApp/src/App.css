@@ -260,7 +260,7 @@ body {
 .class-view-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
@@ -268,16 +268,23 @@ body {
   margin: 0;
 }
 
+.class-view-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .class-view-delete {
-  font: inherit;
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #dc2626;
-  background: white;
-  color: #dc2626;
-  cursor: pointer;
-  flex-shrink: 0;
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #dc2626;
+    background: white;
+    color: #dc2626;
+    cursor: pointer;
+    flex-shrink: 0;
 }
 
 .class-view-delete:hover {
@@ -290,7 +297,6 @@ body {
 }
 
 .class-view-save {
-  margin-left: auto;
   font: inherit;
   font-size: 13px;
   padding: 6px 12px;

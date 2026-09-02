@@ -1,6 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import type { ClassSummary } from '../types/models';
-import { formatDuration } from './format';
 
 interface ClassTileProps {
   trainingClass: ClassSummary;
@@ -45,7 +44,6 @@ export function ClassTile({ trainingClass, onSelect, isDropTarget }: ClassTilePr
       <span className="tile-subtitle">
         {trainingClass.enrollmentCount} {trainingClass.enrollmentCount === 1 ? 'student' : 'students'}
       </span>
-      <span className="tile-subtitle">{formatDuration(trainingClass.duration)}</span>
     </button>
   );
 }
