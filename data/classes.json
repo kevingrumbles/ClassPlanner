@@ -22,5 +22,29 @@
     "Description": null,
     "InstructorId": null,
     "Notes": null
+  },
+  {
+    "Id": "721b94d5-e982-4365-830e-d237caeff5b0",
+    "ScheduleId": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
+    "Name": "Beginner Class",
+    "Description": null,
+    "InstructorId": null,
+    "Notes": null
+  },
+  {
+    "Id": "afcd05af-5396-4442-b5d2-cb32e58683a0",
+    "ScheduleId": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
+    "Name": "Intermediate Class",
+    "Description": null,
+    "InstructorId": null,
+    "Notes": null
+  },
+  {
+    "Id": "0adcbe9a-eff3-4368-a273-93af229c0d43",
+    "ScheduleId": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
+    "Name": "Advanced Class",
+    "Description": null,
+    "InstructorId": null,
+    "Notes": null
   }
 ]

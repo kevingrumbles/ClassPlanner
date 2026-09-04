@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ScheduledClassEntry } from '../types/models';
 import { CalendarSlot } from './CalendarSlot';
 import { DAY_NAMES, formatDuration, formatHourLabel, parseDurationMinutes } from './format';
@@ -8,6 +8,7 @@ interface CalendarProps {
   entries: ScheduledClassEntry[];
   hours: number[];
   onSelectEntry: (entryId: string) => void;
+  scheduleId?: string;
   scheduleName?: string;
   startDate?: string | null;
   endDate?: string | null;
@@ -67,6 +68,7 @@ export function Calendar({
   entries,
   hours,
   onSelectEntry,
+  scheduleId,
   scheduleName,
   startDate,
   endDate,
@@ -81,6 +83,15 @@ export function Calendar({
   const [draftEndDate, setDraftEndDate] = useState(endDate ?? '');
   const [isEditingName, setIsEditingName] = useState(false);
   const [draftName, setDraftName] = useState(scheduleName ?? '');
+
+  // startDate/endDate arrive asynchronously after the schedule id is already active (the
+  // detail fetch resolves later), so the initial useState seed above can miss them. Re-sync
+  // the drafts whenever the schedule identity or its persisted dates change.
+  useEffect(() => {
+    setDraftStartDate(startDate ?? '');
+    setDraftEndDate(endDate ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-sync only on schedule/date changes
+  }, [scheduleId, startDate, endDate]);
 
   const isDirty = draftStartDate !== (startDate ?? '') || draftEndDate !== (endDate ?? '');
 

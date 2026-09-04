@@ -22,5 +22,29 @@
     "StudentId": "b455640d-7e5c-4f3f-94a5-06c235f9a07d",
     "TrainingClassId": "175ddd00-507e-409e-a1d6-b78fc61f0b73",
     "CreatedAtUtc": "2026-09-04T05:18:51.7763615Z"
+  },
+  {
+    "Id": "7d660191-3c64-43e4-bc2d-2dd5dcfdf3fc",
+    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
+    "TrainingClassId": "721b94d5-e982-4365-830e-d237caeff5b0",
+    "CreatedAtUtc": "2026-09-04T19:56:55.1852066Z"
+  },
+  {
+    "Id": "89cc3eed-4781-4431-bcc0-cf0173eb3124",
+    "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
+    "TrainingClassId": "afcd05af-5396-4442-b5d2-cb32e58683a0",
+    "CreatedAtUtc": "2026-09-04T19:56:55.1852093Z"
+  },
+  {
+    "Id": "c65bd453-56c1-47ad-8e40-a78c8acface3",
+    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
+    "TrainingClassId": "0adcbe9a-eff3-4368-a273-93af229c0d43",
+    "CreatedAtUtc": "2026-09-04T19:56:55.1852099Z"
+  },
+  {
+    "Id": "0e92e86c-768b-40e4-9122-62f9062f0293",
+    "StudentId": "b455640d-7e5c-4f3f-94a5-06c235f9a07d",
+    "TrainingClassId": "0adcbe9a-eff3-4368-a273-93af229c0d43",
+    "CreatedAtUtc": "2026-09-04T19:56:55.1852103Z"
   }
 ]

@@ -685,6 +685,7 @@ function App() {
                 onSelectEntry={(entryId) =>
                   activeScheduleId && setSelected({ type: 'scheduledClass', scheduleId: activeScheduleId, entryId })
                 }
+                scheduleId={activeScheduleDetail?.id ?? activeScheduleId ?? undefined}
                 scheduleName={activeScheduleDetail?.name}
                 startDate={activeScheduleDetail?.startDate}
                 endDate={activeScheduleDetail?.endDate}

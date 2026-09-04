@@ -2,7 +2,13 @@
   {
     "Id": "4451ca64-c0b3-4c74-89fe-d8824926631d",
     "Name": "Summer Schedule",
-    "StartDate": "2026-09-08",
-    "EndDate": "2026-09-25"
+    "StartDate": "2026-09-01",
+    "EndDate": null
+  },
+  {
+    "Id": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
+    "Name": "Winter Schedule",
+    "StartDate": null,
+    "EndDate": null
   }
 ]

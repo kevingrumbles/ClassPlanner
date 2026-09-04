@@ -75,8 +75,11 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
 
     /// <summary>
     /// Returns the id of the dedicated secondary "Class Planner" calendar, using
-    /// <paramref name="existingCalendarId"/> if it is still valid, otherwise searching the
-    /// user's calendar list, and finally creating a new secondary calendar if none is found.
+    /// <paramref name="existingCalendarId"/> if it is still valid, otherwise creating a new
+    /// secondary calendar. Note: the narrow calendar.app.created scope only grants access to
+    /// calendars/events this app has created, so we cannot list/search the user's full
+    /// calendar list (CalendarList.List requires a broader scope) - the persisted calendar id
+    /// is the only way to find a previously-created calendar.
     /// </summary>
     public async Task<string> FindOrCreateCalendarAsync(string accessToken, string? existingCalendarId)
     {
@@ -93,13 +96,6 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
             {
                 logger.LogWarning("Configured Google calendar {CalendarId} no longer exists; creating a new one.", existingCalendarId);
             }
-        }
-
-        var calendarList = await calendarService.CalendarList.List().ExecuteAsync();
-        var existing = calendarList.Items?.FirstOrDefault(c => c.Summary == _options.CalendarName);
-        if (existing is not null)
-        {
-            return existing.Id;
         }
 
         var created = await calendarService.Calendars.Insert(new Calendar
