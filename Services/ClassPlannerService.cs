@@ -9,7 +9,7 @@ namespace ClassPlanner.Services;
 /// Controllers call into this service; it is the only layer (besides <see cref="IDataStore"/>)
 /// that touches persisted data. The backend is authoritative for all business rules.
 /// </summary>
-public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerService> logger)
+public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService googleCalendarService, ILogger<ClassPlannerService> logger)
 {
     public async Task<List<StudentSummaryDto>> GetStudentsAsync()
     {
@@ -720,6 +720,226 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
 
     private static string FormatStudentName(Student? student) =>
         student is null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
+
+    public async Task<GoogleCalendarStatusDto> GetGoogleCalendarStatusAsync(string? accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return new GoogleCalendarStatusDto { Connected = false };
+        }
+
+        var validation = await googleCalendarService.ValidateAccessTokenAsync(accessToken);
+        if (!validation.IsValid)
+        {
+            return new GoogleCalendarStatusDto { Connected = false };
+        }
+
+        return new GoogleCalendarStatusDto
+        {
+            Connected = true,
+            Email = validation.Email
+        };
+    }
+
+    /// <summary>
+    /// Synchronizes every <see cref="ScheduledClass"/> belonging to <paramref name="scheduleId"/>
+    /// to the user's dedicated "Class Planner" Google Calendar as weekly recurring events.
+    /// ClassPlanner remains the source of truth; this is a one-way, idempotent push.
+    /// </summary>
+    public async Task<GoogleCalendarSyncResultDto> SyncScheduleToGoogleCalendarAsync(Guid scheduleId, string? accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var validation = await googleCalendarService.ValidateAccessTokenAsync(accessToken);
+        if (!validation.IsValid)
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var schedules = await dataStore.GetSchedulesAsync();
+        var schedule = schedules.FirstOrDefault(s => s.Id == scheduleId);
+        if (schedule is null)
+        {
+            throw new ClassPlannerNotFoundException("Schedule was not found.");
+        }
+
+        var settings = await dataStore.GetGoogleCalendarSettingsAsync();
+        var calendarId = await googleCalendarService.FindOrCreateCalendarAsync(accessToken, settings.CalendarId);
+        if (calendarId != settings.CalendarId)
+        {
+            settings.CalendarId = calendarId;
+            await dataStore.SaveGoogleCalendarSettingsAsync(settings);
+        }
+
+        var allEntries = await dataStore.GetScheduledClassesAsync();
+        var scheduleEntries = allEntries.Where(e => e.ScheduleId == scheduleId).ToList();
+
+        var classes = await dataStore.GetClassesAsync();
+        var students = await dataStore.GetStudentsAsync();
+
+        var mappings = await dataStore.GetGoogleCalendarEventMappingsAsync();
+        var scheduleMappings = mappings.Where(m => m.ScheduleId == scheduleId).ToList();
+
+        var created = 0;
+        var updated = 0;
+        var deleted = 0;
+
+        var seenScheduledClassIds = new HashSet<Guid>();
+
+        foreach (var entry in scheduleEntries)
+        {
+            seenScheduledClassIds.Add(entry.Id);
+
+            var input = BuildEventInput(entry, schedule, classes, students);
+            if (input is null)
+            {
+                continue;
+            }
+
+            var mapping = scheduleMappings.FirstOrDefault(m => m.ScheduledClassId == entry.Id);
+            var isNew = mapping is null;
+
+            try
+            {
+                var eventId = await googleCalendarService.UpsertEventAsync(accessToken, calendarId, mapping?.EventId, input);
+
+                if (mapping is null)
+                {
+                    mapping = new GoogleCalendarEventMapping
+                    {
+                        ScheduledClassId = entry.Id,
+                        ScheduleId = scheduleId,
+                        CalendarId = calendarId,
+                        EventId = eventId
+                    };
+                    mappings.Add(mapping);
+                }
+                else
+                {
+                    mapping.CalendarId = calendarId;
+                    mapping.EventId = eventId;
+                }
+
+                if (isNew)
+                {
+                    created++;
+                }
+                else
+                {
+                    updated++;
+                }
+            }
+            catch (Exception ex) when (GoogleCalendarService.IsCalendarNotFound(ex))
+            {
+                // The Class Planner calendar itself was removed mid-sync; recreate it and retry once.
+                logger.LogWarning(ex, "Class Planner Google calendar {CalendarId} was missing during sync; recreating.", calendarId);
+                settings.CalendarId = "";
+                await dataStore.SaveGoogleCalendarSettingsAsync(settings);
+                calendarId = await googleCalendarService.FindOrCreateCalendarAsync(accessToken, null);
+                settings.CalendarId = calendarId;
+                await dataStore.SaveGoogleCalendarSettingsAsync(settings);
+
+                var eventId = await googleCalendarService.UpsertEventAsync(accessToken, calendarId, null, input);
+                if (mapping is null)
+                {
+                    mapping = new GoogleCalendarEventMapping
+                    {
+                        ScheduledClassId = entry.Id,
+                        ScheduleId = scheduleId,
+                        CalendarId = calendarId,
+                        EventId = eventId
+                    };
+                    mappings.Add(mapping);
+                }
+                else
+                {
+                    mapping.CalendarId = calendarId;
+                    mapping.EventId = eventId;
+                }
+                created++;
+            }
+        }
+
+        // Remove Google events for mappings whose ScheduledClass no longer exists in this schedule.
+        var staleMappings = scheduleMappings.Where(m => !seenScheduledClassIds.Contains(m.ScheduledClassId)).ToList();
+        foreach (var stale in staleMappings)
+        {
+            await googleCalendarService.DeleteEventAsync(accessToken, stale.CalendarId, stale.EventId);
+            mappings.Remove(stale);
+            deleted++;
+        }
+
+        await dataStore.SaveGoogleCalendarEventMappingsAsync(mappings);
+
+        logger.LogInformation(
+            "Synchronized schedule {ScheduleId} to Google Calendar: {Created} created, {Updated} updated, {Deleted} deleted",
+            scheduleId, created, updated, deleted);
+
+        return new GoogleCalendarSyncResultDto { Created = created, Updated = updated, Deleted = deleted };
+    }
+
+    private static GoogleCalendarEventInput? BuildEventInput(
+        ScheduledClass entry,
+        Schedule schedule,
+        List<TrainingClass> classes,
+        List<Student> students)
+    {
+        string summary;
+        string? description;
+
+        if (entry.TrainingClassId.HasValue)
+        {
+            var trainingClass = classes.FirstOrDefault(c => c.Id == entry.TrainingClassId);
+            if (trainingClass is null)
+            {
+                return null;
+            }
+
+            summary = trainingClass.Name;
+            description = $"Class: {trainingClass.Name}";
+        }
+        else if (entry.StudentId.HasValue)
+        {
+            var student = students.FirstOrDefault(s => s.Id == entry.StudentId);
+            if (student is null)
+            {
+                return null;
+            }
+
+            summary = $"{student.FirstName} {student.LastName}";
+            description = $"Student: {summary}";
+        }
+        else
+        {
+            return null;
+        }
+
+        var firstOccurrence = CalculateFirstOccurrence(schedule.StartDate, entry.DayOfWeek);
+
+        return new GoogleCalendarEventInput(
+            summary,
+            description,
+            entry.Location,
+            firstOccurrence,
+            entry.StartTime,
+            entry.Duration,
+            entry.DayOfWeek,
+            schedule.EndDate);
+    }
+
+    /// <summary>
+    /// The first occurrence is the earliest date on/after <paramref name="scheduleStartDate"/>
+    /// (or today, if the schedule has no start date) that falls on <paramref name="dayOfWeek"/>.
+    /// </summary>
+    private static DateOnly CalculateFirstOccurrence(DateOnly? scheduleStartDate, DayOfWeek dayOfWeek)
+    {
+        var searchStart = scheduleStartDate ?? DateOnly.FromDateTime(DateTime.Today);
+        var daysToAdd = ((int)dayOfWeek - (int)searchStart.DayOfWeek + 7) % 7;
+        return searchStart.AddDays(daysToAdd);
+    }
 
     /// <summary>
     /// Populates the JSON data files with sample data if they are currently empty.

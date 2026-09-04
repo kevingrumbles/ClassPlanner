@@ -161,3 +161,24 @@ public class MoveScheduledClassRequest
     public TimeSpan? Duration { get; set; }
     public string? Location { get; set; }
 }
+
+public class GoogleCalendarStatusDto
+{
+    public bool Connected { get; set; }
+    public string? Email { get; set; }
+}
+
+public class GoogleCalendarSyncResultDto
+{
+    public int Created { get; set; }
+    public int Updated { get; set; }
+    public int Deleted { get; set; }
+}
+
+/// <summary>Public OAuth configuration used by the frontend to initialize the Google Identity Services popup token client.</summary>
+public class GoogleCalendarConfigDto
+{
+    public string ClientId { get; set; } = "";
+    public string Scope { get; set; } = "";
+}
+

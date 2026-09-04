@@ -165,4 +165,39 @@ public class SchedulesController(ClassPlannerService service) : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Synchronizes this schedule's entries to the user's "Class Planner" Google Calendar
+    /// as weekly recurring events. ClassPlanner remains the source of truth; this is a
+    /// one-way, idempotent push (repeated calls update existing events rather than duplicating them).
+    /// </summary>
+    [HttpPost("{scheduleId:guid}/google-calendar")]
+    public async Task<IActionResult> UpdateGoogleCalendar(Guid scheduleId)
+    {
+        try
+        {
+            var accessToken = GetBearerToken();
+            var result = await service.SyncScheduleToGoogleCalendarAsync(scheduleId, accessToken);
+            return Ok(result);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ClassPlannerConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    private string? GetBearerToken()
+    {
+        var header = Request.Headers.Authorization.ToString();
+        if (string.IsNullOrEmpty(header) || !header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return header["Bearer ".Length..].Trim();
+    }
 }

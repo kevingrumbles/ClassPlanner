@@ -5,8 +5,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.Configure<DataStoreOptions>(builder.Configuration.GetSection(DataStoreOptions.SectionName));
+builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection(GoogleOptions.SectionName));
 builder.Services.AddSingleton<IDataStore, JsonDataStore>();
 builder.Services.AddScoped<ClassPlannerService>();
+builder.Services.AddScoped<GoogleCalendarService>();
+builder.Services.AddHttpClient<GoogleCalendarService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -31,8 +34,6 @@ app.UseHttpsRedirection();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
-
-app.UseAuthorization();
 
 app.MapControllers();
 

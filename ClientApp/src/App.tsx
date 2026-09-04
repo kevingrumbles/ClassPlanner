@@ -1,6 +1,6 @@
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { Calendar } from './components/Calendar';
 import { ClassTile } from './components/ClassTile';
@@ -14,6 +14,7 @@ import type {
   ClassDetail,
   ClassSummary,
   DayOfWeekIndex,
+  GoogleCalendarStatus,
   ScheduleDetail,
   ScheduleSummary,
   ScheduledClassDetail,
@@ -37,6 +38,11 @@ function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeDragLabel, setActiveDragLabel] = useState<string | null>(null);
+  const [googleStatus, setGoogleStatus] = useState<GoogleCalendarStatus>({ connected: false });
+  const [isUpdatingGoogleCalendar, setIsUpdatingGoogleCalendar] = useState(false);
+  const [googleSyncMessage, setGoogleSyncMessage] = useState<string | null>(null);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const googleTokenClientRef = useRef<GoogleTokenClient | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -60,7 +66,64 @@ function App() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch on mount
     loadAll();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial Google config/status fetch on mount
+    initGoogle();
   }, []);
+
+  const initGoogle = async () => {
+    try {
+      const config = await api.getGoogleConfig();
+      if (!config.clientId) {
+        return;
+      }
+
+      const oauth2 = await waitForGoogleIdentityServices();
+      if (!oauth2) {
+        return;
+      }
+
+      googleTokenClientRef.current = oauth2.initTokenClient({
+        client_id: config.clientId,
+        scope: config.scope,
+        callback: (response) => {
+          if (response.access_token) {
+            setGoogleAccessToken(response.access_token);
+            api
+              .getGoogleStatus(response.access_token)
+              .then(setGoogleStatus)
+              .catch(() => setGoogleStatus({ connected: false }));
+          } else {
+            showError(response.error_description ?? 'Unable to connect Google Calendar.');
+          }
+        },
+        error_callback: (err) => {
+          showError(err.message ?? 'Unable to connect Google Calendar.');
+        },
+      });
+    } catch {
+      // Non-fatal: Connect Google Calendar button will simply be unavailable.
+    }
+  };
+
+  // The GIS <script> tag is loaded async/defer, so it may not be ready yet when this
+  // component mounts. Poll briefly for window.google.accounts.oauth2 to appear.
+  function waitForGoogleIdentityServices(timeoutMs = 5000, intervalMs = 100) {
+    return new Promise<NonNullable<Window['google']>['accounts']['oauth2'] | null>((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        if (window.google?.accounts?.oauth2) {
+          resolve(window.google.accounts.oauth2);
+          return;
+        }
+        if (Date.now() - start >= timeoutMs) {
+          resolve(null);
+          return;
+        }
+        setTimeout(check, intervalMs);
+      };
+      check();
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -431,6 +494,30 @@ function App() {
     }
   }
 
+  function handleConnectGoogle() {
+    if (!googleTokenClientRef.current) {
+      showError('Google Calendar integration is not configured.');
+      return;
+    }
+    googleTokenClientRef.current.requestAccessToken({ prompt: 'consent' });
+  }
+
+  async function handleUpdateGoogleCalendar() {
+    if (!activeScheduleId || isUpdatingGoogleCalendar) return;
+    setIsUpdatingGoogleCalendar(true);
+    setGoogleSyncMessage(null);
+    try {
+      const result = await api.updateGoogleCalendar(activeScheduleId, googleAccessToken);
+      setGoogleSyncMessage(
+        `Google Calendar updated. Created: ${result.created}  Updated: ${result.updated}  Removed: ${result.deleted}`
+      );
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to update Google Calendar.');
+    } finally {
+      setIsUpdatingGoogleCalendar(false);
+    }
+  }
+
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current;
     if (data?.type === 'student') {
@@ -478,12 +565,43 @@ function App() {
       <div className="app">
         <header className="tool-ribbon">
           <h1>Class Planner</h1>
+          <div className="google-status">
+            {googleStatus.connected ? (
+              <span className="google-status-connected">
+                Google Calendar Connected{googleStatus.email ? ` (${googleStatus.email})` : ''}
+              </span>
+            ) : (
+              <button type="button" className="google-connect-button" onClick={handleConnectGoogle}>
+                Connect Google Calendar
+              </button>
+            )}
+            {activeScheduleId && (
+              <button
+                type="button"
+                className="calendar-update-google-calendar"
+                onClick={handleUpdateGoogleCalendar}
+                disabled={!googleStatus.connected || isUpdatingGoogleCalendar}
+                title={googleStatus.connected ? undefined : 'Connect Google Calendar to enable synchronization.'}
+              >
+                {isUpdatingGoogleCalendar ? 'Updating...' : 'Update Google Calendar'}
+              </button>
+            )}
+          </div>
         </header>
 
         {error && (
           <div className="app-error">
             <span>{error}</span>
             <button type="button" onClick={() => setError(null)}>
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {googleSyncMessage && (
+          <div className="app-info">
+            <span>{googleSyncMessage}</span>
+            <button type="button" onClick={() => setGoogleSyncMessage(null)}>
               Dismiss
             </button>
           </div>

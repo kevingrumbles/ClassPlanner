@@ -81,6 +81,22 @@ export interface ApiErrorResponse {
   message: string;
 }
 
+export interface GoogleCalendarStatus {
+  connected: boolean;
+  email?: string | null;
+}
+
+export interface GoogleCalendarConfig {
+  clientId: string;
+  scope: string;
+}
+
+export interface GoogleCalendarSyncResult {
+  created: number;
+  updated: number;
+  deleted: number;
+}
+
 export type SelectedObject =
   | { type: 'student'; id: string }
   | { type: 'class'; id: string }

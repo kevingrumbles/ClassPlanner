@@ -50,6 +50,22 @@ body {
   outline-offset: 2px;
 }
 
+.google-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.google-status-connected {
+  font-size: 13px;
+  color: #d1fae5;
+}
+
+.google-status button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .app-error {
   background: #fee2e2;
   color: #991b1b;

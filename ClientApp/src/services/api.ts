@@ -2,6 +2,9 @@ import type {
   ClassDetail,
   ClassSummary,
   DayOfWeekIndex,
+  GoogleCalendarConfig,
+  GoogleCalendarStatus,
+  GoogleCalendarSyncResult,
   ScheduleDetail,
   ScheduledClassDetail,
   ScheduledClassEntry,
@@ -18,6 +21,10 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
   }
+}
+
+function authHeader(accessToken: string | null): Record<string, string> {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -210,6 +217,21 @@ export function enrollStudent(classId: string, studentId: string): Promise<void>
 
 export function removeStudentFromClass(classId: string, studentId: string): Promise<void> {
   return request(`/api/classes/${classId}/students/${studentId}`, { method: 'DELETE' });
+}
+
+export function getGoogleConfig(): Promise<GoogleCalendarConfig> {
+  return request('/api/google/config');
+}
+
+export function getGoogleStatus(accessToken: string | null): Promise<GoogleCalendarStatus> {
+  return request('/api/google/status', { headers: authHeader(accessToken) });
+}
+
+export function updateGoogleCalendar(scheduleId: string, accessToken: string | null): Promise<GoogleCalendarSyncResult> {
+  return request(`/api/schedules/${scheduleId}/google-calendar`, {
+    method: 'POST',
+    headers: authHeader(accessToken),
+  });
 }
 
 

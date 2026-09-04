@@ -27,4 +27,10 @@ public interface IDataStore
 
     Task<List<ScheduledClass>> GetScheduledClassesAsync();
     Task SaveScheduledClassesAsync(List<ScheduledClass> scheduledClasses);
+
+    Task<GoogleCalendarSettings> GetGoogleCalendarSettingsAsync();
+    Task SaveGoogleCalendarSettingsAsync(GoogleCalendarSettings settings);
+
+    Task<List<GoogleCalendarEventMapping>> GetGoogleCalendarEventMappingsAsync();
+    Task SaveGoogleCalendarEventMappingsAsync(List<GoogleCalendarEventMapping> mappings);
 }

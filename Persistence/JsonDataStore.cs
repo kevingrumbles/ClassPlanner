@@ -25,12 +25,16 @@ public class JsonDataStore : IDataStore
     private readonly SemaphoreSlim _enrollmentsLock = new(1, 1);
     private readonly SemaphoreSlim _schedulesLock = new(1, 1);
     private readonly SemaphoreSlim _scheduledClassesLock = new(1, 1);
+    private readonly SemaphoreSlim _googleCalendarSettingsLock = new(1, 1);
+    private readonly SemaphoreSlim _googleCalendarEventMappingsLock = new(1, 1);
 
     private const string StudentsFile = "students.json";
     private const string ClassesFile = "classes.json";
     private const string EnrollmentsFile = "enrollments.json";
     private const string SchedulesFile = "schedules.json";
     private const string ScheduledClassesFile = "scheduledClasses.json";
+    private const string GoogleCalendarSettingsFile = "googleCalendar.json";
+    private const string GoogleCalendarEventMappingsFile = "googleCalendarEvents.json";
 
     public JsonDataStore(IOptions<DataStoreOptions> options, IWebHostEnvironment environment, ILogger<JsonDataStore> logger)
     {
@@ -75,6 +79,67 @@ public class JsonDataStore : IDataStore
 
     public Task<List<ScheduledClass>> GetScheduledClassesAsync() => ReadAsync<ScheduledClass>(ScheduledClassesFile, _scheduledClassesLock);
     public Task SaveScheduledClassesAsync(List<ScheduledClass> scheduledClasses) => WriteAsync(ScheduledClassesFile, scheduledClasses, _scheduledClassesLock);
+
+    // Google Calendar settings are a single settings object rather than a domain collection,
+    // so they are read/written directly instead of reusing the list-based ReadAsync/WriteAsync helpers.
+    public async Task<GoogleCalendarSettings> GetGoogleCalendarSettingsAsync()
+    {
+        var path = Path.Combine(_dataDirectory, GoogleCalendarSettingsFile);
+
+        await _googleCalendarSettingsLock.WaitAsync();
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return new GoogleCalendarSettings();
+            }
+
+            await using var stream = File.OpenRead(path);
+            var settings = await JsonSerializer.DeserializeAsync<GoogleCalendarSettings>(stream, SerializerOptions);
+            return settings ?? new GoogleCalendarSettings();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read data file {FileName}", GoogleCalendarSettingsFile);
+            return new GoogleCalendarSettings();
+        }
+        finally
+        {
+            _googleCalendarSettingsLock.Release();
+        }
+    }
+
+    public async Task SaveGoogleCalendarSettingsAsync(GoogleCalendarSettings settings)
+    {
+        var path = Path.Combine(_dataDirectory, GoogleCalendarSettingsFile);
+        var tempPath = path + ".tmp";
+
+        await _googleCalendarSettingsLock.WaitAsync();
+        try
+        {
+            await using (var stream = File.Create(tempPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, settings, SerializerOptions);
+            }
+
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to write data file {FileName}", GoogleCalendarSettingsFile);
+            throw;
+        }
+        finally
+        {
+            _googleCalendarSettingsLock.Release();
+        }
+    }
+
+    public Task<List<GoogleCalendarEventMapping>> GetGoogleCalendarEventMappingsAsync() =>
+        ReadAsync<GoogleCalendarEventMapping>(GoogleCalendarEventMappingsFile, _googleCalendarEventMappingsLock);
+
+    public Task SaveGoogleCalendarEventMappingsAsync(List<GoogleCalendarEventMapping> mappings) =>
+        WriteAsync(GoogleCalendarEventMappingsFile, mappings, _googleCalendarEventMappingsLock);
 
     private async Task<List<T>> ReadAsync<T>(string fileName, SemaphoreSlim fileLock)
     {
