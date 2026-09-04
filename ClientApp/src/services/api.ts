@@ -125,6 +125,13 @@ export function deleteSchedule(scheduleId: string): Promise<void> {
   return request(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
 }
 
+export function copySchedule(scheduleId: string, name: string): Promise<ScheduleSummary> {
+  return request(`/api/schedules/${scheduleId}/copy`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function getScheduledClassDetail(scheduleId: string, entryId: string): Promise<ScheduledClassDetail> {
   return request(`/api/schedules/${scheduleId}/entries/${entryId}`);
 }

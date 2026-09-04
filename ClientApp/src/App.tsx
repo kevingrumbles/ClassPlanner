@@ -363,6 +363,31 @@ function App() {
     }
   }
 
+  async function handleCopySchedule() {
+    if (!activeScheduleId) return;
+    const activeSchedule = schedules.find((s) => s.id === activeScheduleId);
+    let name = window.prompt('New schedule name', activeSchedule ? `Copy of ${activeSchedule.name}` : '');
+    if (!name) return;
+
+    while (true) {
+      try {
+        const copy = await api.copySchedule(activeScheduleId, name);
+        setSchedules((prev) => [...prev, copy]);
+        setActiveScheduleId(copy.id);
+        setSelected(null);
+        return;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          name = window.prompt(`${err.message} Enter a different name`, name);
+          if (!name) return;
+          continue;
+        }
+        showError(err instanceof ApiError ? err.message : 'Unable to copy schedule.');
+        return;
+      }
+    }
+  }
+
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current;
     if (data?.type === 'student') {
@@ -440,6 +465,11 @@ function App() {
               <button type="button" onClick={handleCreateSchedule}>
                 New Schedule
               </button>
+              {activeScheduleId && (
+                <button type="button" onClick={handleCopySchedule}>
+                  Copy Schedule
+                </button>
+              )}
               {activeScheduleId && (
                 <button type="button" onClick={handleDeleteSchedule}>
                   Delete Schedule

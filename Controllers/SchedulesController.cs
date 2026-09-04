@@ -48,6 +48,24 @@ public class SchedulesController(ClassPlannerService service) : ControllerBase
         }
     }
 
+    [HttpPost("{scheduleId:guid}/copy")]
+    public async Task<IActionResult> CopySchedule(Guid scheduleId, [FromBody] CopyScheduleRequest request)
+    {
+        try
+        {
+            var copy = await service.CopyScheduleAsync(scheduleId, request.Name);
+            return CreatedAtAction(nameof(GetSchedule), new { scheduleId = copy.Id }, copy);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ClassPlannerConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("{scheduleId:guid}/entries/{entryId:guid}")]
     public async Task<IActionResult> GetScheduledClass(Guid scheduleId, Guid entryId)
     {

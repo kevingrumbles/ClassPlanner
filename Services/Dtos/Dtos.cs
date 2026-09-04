@@ -90,6 +90,11 @@ public class CreateScheduleRequest
     public string Name { get; set; } = "";
 }
 
+public class CopyScheduleRequest
+{
+    public string Name { get; set; } = "";
+}
+
 public class CreateClassRequest
 {
     public string Name { get; set; } = "";

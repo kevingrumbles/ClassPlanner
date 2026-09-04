@@ -334,6 +334,83 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         logger.LogInformation("Schedule deleted {ScheduleId}", scheduleId);
     }
 
+    public async Task<ScheduleSummaryDto> CopyScheduleAsync(Guid scheduleId, string name)
+    {
+        var schedules = await dataStore.GetSchedulesAsync();
+        var source = schedules.FirstOrDefault(s => s.Id == scheduleId);
+        if (source is null)
+        {
+            throw new ClassPlannerNotFoundException("Schedule was not found.");
+        }
+
+        if (schedules.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ClassPlannerConflictException($"A schedule named \"{name}\" already exists.");
+        }
+
+        var newSchedule = new Schedule { Id = Guid.NewGuid(), Name = name };
+        schedules.Add(newSchedule);
+        await dataStore.SaveSchedulesAsync(schedules);
+
+        var classes = await dataStore.GetClassesAsync();
+        var sourceClasses = classes.Where(c => c.ScheduleId == scheduleId).ToList();
+        var classIdMap = new Dictionary<Guid, Guid>();
+        foreach (var trainingClass in sourceClasses)
+        {
+            var newClass = new TrainingClass
+            {
+                Id = Guid.NewGuid(),
+                ScheduleId = newSchedule.Id,
+                Name = trainingClass.Name,
+                Description = trainingClass.Description,
+                InstructorId = trainingClass.InstructorId,
+                Notes = trainingClass.Notes
+            };
+            classIdMap[trainingClass.Id] = newClass.Id;
+            classes.Add(newClass);
+        }
+        await dataStore.SaveClassesAsync(classes);
+
+        var enrollments = await dataStore.GetEnrollmentsAsync();
+        var newEnrollments = enrollments
+            .Where(e => classIdMap.ContainsKey(e.TrainingClassId))
+            .Select(e => new Enrollment
+            {
+                Id = Guid.NewGuid(),
+                StudentId = e.StudentId,
+                TrainingClassId = classIdMap[e.TrainingClassId],
+                CreatedAtUtc = DateTime.UtcNow
+            })
+            .ToList();
+        if (newEnrollments.Count > 0)
+        {
+            enrollments.AddRange(newEnrollments);
+            await dataStore.SaveEnrollmentsAsync(enrollments);
+        }
+
+        var entries = await dataStore.GetScheduledClassesAsync();
+        var sourceEntries = entries.Where(e => e.ScheduleId == scheduleId).ToList();
+        var newEntries = sourceEntries.Select(e => new ScheduledClass
+        {
+            Id = Guid.NewGuid(),
+            ScheduleId = newSchedule.Id,
+            TrainingClassId = e.TrainingClassId.HasValue ? classIdMap.GetValueOrDefault(e.TrainingClassId.Value) : null,
+            StudentId = e.StudentId,
+            DayOfWeek = e.DayOfWeek,
+            StartTime = e.StartTime,
+            Duration = e.Duration,
+            Location = e.Location
+        }).ToList();
+        if (newEntries.Count > 0)
+        {
+            entries.AddRange(newEntries);
+            await dataStore.SaveScheduledClassesAsync(entries);
+        }
+
+        logger.LogInformation("Schedule {ScheduleId} copied to {NewScheduleId}", scheduleId, newSchedule.Id);
+        return new ScheduleSummaryDto { Id = newSchedule.Id, Name = newSchedule.Name, EntryCount = newEntries.Count };
+    }
+
     public async Task<ScheduledClassDetailDto?> GetScheduledClassDetailAsync(Guid scheduleId, Guid entryId)
     {
         var entries = await dataStore.GetScheduledClassesAsync();

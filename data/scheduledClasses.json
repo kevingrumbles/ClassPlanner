@@ -28,5 +28,85 @@
     "StartTime": "09:15:00",
     "Duration": "01:00:00",
     "Location": null
+  },
+  {
+    "Id": "df2ea669-292d-44cb-8f93-ec9d0ef15545",
+    "ScheduleId": "f03215d3-7051-4cfd-876f-79df2805f28f",
+    "TrainingClassId": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
+    "StudentId": null,
+    "DayOfWeek": 3,
+    "StartTime": "09:15:00",
+    "Duration": "01:00:00",
+    "Location": null
+  },
+  {
+    "Id": "1c4d9b6e-8ffe-4f84-8457-91e668dce87b",
+    "ScheduleId": "f03215d3-7051-4cfd-876f-79df2805f28f",
+    "TrainingClassId": null,
+    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
+    "DayOfWeek": 2,
+    "StartTime": "09:15:00",
+    "Duration": "01:15:00",
+    "Location": null
+  },
+  {
+    "Id": "b2fc45b8-61d1-4482-866f-f5c2a998832c",
+    "ScheduleId": "24736e0a-b5e2-47f3-bbd2-4a55696e950f",
+    "TrainingClassId": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
+    "StudentId": null,
+    "DayOfWeek": 3,
+    "StartTime": "09:15:00",
+    "Duration": "01:00:00",
+    "Location": null
+  },
+  {
+    "Id": "5a54ca10-bc05-420e-8963-25f446e012f1",
+    "ScheduleId": "24736e0a-b5e2-47f3-bbd2-4a55696e950f",
+    "TrainingClassId": null,
+    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
+    "DayOfWeek": 2,
+    "StartTime": "09:15:00",
+    "Duration": "01:15:00",
+    "Location": null
+  },
+  {
+    "Id": "5a2d9ea8-3b33-4196-a83b-e1445a39bd2f",
+    "ScheduleId": "5e2abf2b-1796-441c-be7a-de87f5c7dfd6",
+    "TrainingClassId": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
+    "StudentId": null,
+    "DayOfWeek": 3,
+    "StartTime": "09:15:00",
+    "Duration": "01:00:00",
+    "Location": null
+  },
+  {
+    "Id": "c4733a47-4ebf-4caa-a0ae-4d94e01a06ff",
+    "ScheduleId": "5e2abf2b-1796-441c-be7a-de87f5c7dfd6",
+    "TrainingClassId": null,
+    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
+    "DayOfWeek": 2,
+    "StartTime": "09:15:00",
+    "Duration": "01:15:00",
+    "Location": null
+  },
+  {
+    "Id": "ef644427-f304-4eb2-8f1e-e420bcb5f21f",
+    "ScheduleId": "1d28eedc-bde7-4a32-af84-590d8686ce1e",
+    "TrainingClassId": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
+    "StudentId": null,
+    "DayOfWeek": 3,
+    "StartTime": "09:15:00",
+    "Duration": "01:00:00",
+    "Location": null
+  },
+  {
+    "Id": "826b8041-dd87-4e28-995a-e296a588b901",
+    "ScheduleId": "1d28eedc-bde7-4a32-af84-590d8686ce1e",
+    "TrainingClassId": null,
+    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
+    "DayOfWeek": 2,
+    "StartTime": "09:15:00",
+    "Duration": "01:15:00",
+    "Location": null
   }
 ]
