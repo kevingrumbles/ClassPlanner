@@ -70,13 +70,16 @@ export function deleteStudent(id: string): Promise<void> {
 
 export function updateStudent(
   id: string,
+  firstName: string,
+  lastName: string,
   email: string | null,
   phone: string | null,
+  emergencyContact: string | null,
   notes: string | null
 ): Promise<StudentDetail> {
   return request(`/api/students/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ email, phone, notes }),
+    body: JSON.stringify({ firstName, lastName, email, phone, emergencyContact, notes }),
   });
 }
 
@@ -95,10 +98,15 @@ export function getClass(id: string): Promise<ClassDetail> {
   return request(`/api/classes/${id}`);
 }
 
-export function updateClass(id: string, description: string | null, notes: string | null): Promise<ClassDetail> {
+export function updateClass(
+  id: string,
+  name: string,
+  description: string | null,
+  notes: string | null
+): Promise<ClassDetail> {
   return request(`/api/classes/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ description, notes }),
+    body: JSON.stringify({ name, description, notes }),
   });
 }
 
@@ -128,6 +136,24 @@ export function deleteSchedule(scheduleId: string): Promise<void> {
 export function copySchedule(scheduleId: string, name: string): Promise<ScheduleSummary> {
   return request(`/api/schedules/${scheduleId}/copy`, {
     method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function updateSchedule(
+  scheduleId: string,
+  startDate: string | null,
+  endDate: string | null
+): Promise<ScheduleSummary> {
+  return request(`/api/schedules/${scheduleId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ startDate, endDate }),
+  });
+}
+
+export function renameSchedule(scheduleId: string, name: string): Promise<ScheduleSummary> {
+  return request(`/api/schedules/${scheduleId}/name`, {
+    method: 'PUT',
     body: JSON.stringify({ name }),
   });
 }

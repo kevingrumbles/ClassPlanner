@@ -15,6 +15,7 @@ public class StudentDetailDto
     public string LastName { get; set; } = "";
     public string? Email { get; set; }
     public string? Phone { get; set; }
+    public string? EmergencyContact { get; set; }
     public string? Notes { get; set; }
     public List<ClassSummaryDto> EnrolledClasses { get; set; } = [];
 }
@@ -23,6 +24,7 @@ public class ClassSummaryDto
 {
     public Guid Id { get; set; }
     public Guid ScheduleId { get; set; }
+    public string ScheduleName { get; set; } = "";
     public string Name { get; set; } = "";
     public int EnrollmentCount { get; set; }
 }
@@ -44,6 +46,8 @@ public class ScheduleSummaryDto
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
     public int EntryCount { get; set; }
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
 }
 
 public class ScheduledClassEntryDto
@@ -65,6 +69,8 @@ public class ScheduleDetailDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
     public List<ScheduledClassEntryDto> Entries { get; set; } = [];
 }
 
@@ -95,6 +101,17 @@ public class CopyScheduleRequest
     public string Name { get; set; } = "";
 }
 
+public class UpdateScheduleRequest
+{
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+}
+
+public class RenameScheduleRequest
+{
+    public string Name { get; set; } = "";
+}
+
 public class CreateClassRequest
 {
     public string Name { get; set; } = "";
@@ -102,6 +119,7 @@ public class CreateClassRequest
 
 public class UpdateClassRequest
 {
+    public string Name { get; set; } = "";
     public string? Description { get; set; }
     public string? Notes { get; set; }
 }
@@ -114,8 +132,11 @@ public class CreateStudentRequest
 
 public class UpdateStudentRequest
 {
+    public string FirstName { get; set; } = "";
+    public string LastName { get; set; } = "";
     public string? Email { get; set; }
     public string? Phone { get; set; }
+    public string? EmergencyContact { get; set; }
     public string? Notes { get; set; }
 }
 

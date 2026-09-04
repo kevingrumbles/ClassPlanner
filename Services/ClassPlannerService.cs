@@ -37,7 +37,7 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         return new StudentSummaryDto { Id = student.Id, FirstName = student.FirstName, LastName = student.LastName, EnrolledClassCount = 0 };
     }
 
-    public async Task<StudentDetailDto> UpdateStudentAsync(Guid studentId, string? email, string? phone, string? notes)
+    public async Task<StudentDetailDto> UpdateStudentAsync(Guid studentId, string firstName, string lastName, string? email, string? phone, string? emergencyContact, string? notes)
     {
         var students = await dataStore.GetStudentsAsync();
         var student = students.FirstOrDefault(s => s.Id == studentId);
@@ -46,8 +46,11 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             throw new ClassPlannerNotFoundException("Student was not found.");
         }
 
+        student.FirstName = firstName;
+        student.LastName = lastName;
         student.Email = email;
         student.Phone = phone;
+        student.EmergencyContact = emergencyContact;
         student.Notes = notes;
         await dataStore.SaveStudentsAsync(students);
         logger.LogInformation("Student updated {StudentId}", studentId);
@@ -84,7 +87,24 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         }
 
         var classes = await dataStore.GetClassesAsync();
+        var schedules = await dataStore.GetSchedulesAsync();
+        var scheduleIds = schedules.Select(s => s.Id).ToHashSet();
+        var validClassIds = classes.Where(c => scheduleIds.Contains(c.ScheduleId)).Select(c => c.Id).ToHashSet();
+
         var enrollments = await dataStore.GetEnrollmentsAsync();
+        var orphanedEnrollments = enrollments
+            .Where(e => e.StudentId == id && !validClassIds.Contains(e.TrainingClassId))
+            .ToList();
+        if (orphanedEnrollments.Count > 0)
+        {
+            enrollments.RemoveAll(e => orphanedEnrollments.Contains(e));
+            await dataStore.SaveEnrollmentsAsync(enrollments);
+            logger.LogInformation(
+                "Removed {Count} orphaned enrollment(s) for student {StudentId} referencing deleted classes or schedules",
+                orphanedEnrollments.Count,
+                id);
+        }
+
         var enrolledClassIds = enrollments.Where(e => e.StudentId == id).Select(e => e.TrainingClassId).ToHashSet();
 
         return new StudentDetailDto
@@ -94,10 +114,11 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             LastName = student.LastName,
             Email = student.Email,
             Phone = student.Phone,
+            EmergencyContact = student.EmergencyContact,
             Notes = student.Notes,
             EnrolledClasses = classes
                 .Where(c => enrolledClassIds.Contains(c.Id))
-                .Select(c => ToClassSummary(c, enrollments))
+                .Select(c => ToClassSummary(c, enrollments, schedules))
                 .ToList()
         };
     }
@@ -120,10 +141,10 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         classes.Add(trainingClass);
         await dataStore.SaveClassesAsync(classes);
         logger.LogInformation("Class created {ClassId}", trainingClass.Id);
-        return ToClassSummary(trainingClass, []);
+        return ToClassSummary(trainingClass, [], [schedule]);
     }
 
-    public async Task<ClassDetailDto> UpdateClassAsync(Guid classId, string? description, string? notes)
+    public async Task<ClassDetailDto> UpdateClassAsync(Guid classId, string name, string? description, string? notes)
     {
         var classes = await dataStore.GetClassesAsync();
         var trainingClass = classes.FirstOrDefault(c => c.Id == classId);
@@ -132,6 +153,7 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             throw new ClassPlannerNotFoundException("Class was not found.");
         }
 
+        trainingClass.Name = name;
         trainingClass.Description = description;
         trainingClass.Notes = notes;
         await dataStore.SaveClassesAsync(classes);
@@ -145,11 +167,12 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
     {
         var classes = await dataStore.GetClassesAsync();
         var enrollments = await dataStore.GetEnrollmentsAsync();
+        var schedules = await dataStore.GetSchedulesAsync();
         if (scheduleId.HasValue)
         {
             classes = classes.Where(c => c.ScheduleId == scheduleId.Value).ToList();
         }
-        return classes.Select(c => ToClassSummary(c, enrollments)).ToList();
+        return classes.Select(c => ToClassSummary(c, enrollments, schedules)).ToList();
     }
 
     public async Task DeleteClassAsync(Guid classId)
@@ -184,7 +207,22 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         }
 
         var students = await dataStore.GetStudentsAsync();
+        var studentIds = students.Select(s => s.Id).ToHashSet();
         var enrollments = await dataStore.GetEnrollmentsAsync();
+
+        var orphanedEnrollments = enrollments
+            .Where(e => e.TrainingClassId == id && !studentIds.Contains(e.StudentId))
+            .ToList();
+        if (orphanedEnrollments.Count > 0)
+        {
+            enrollments.RemoveAll(e => orphanedEnrollments.Contains(e));
+            await dataStore.SaveEnrollmentsAsync(enrollments);
+            logger.LogInformation(
+                "Removed {Count} orphaned enrollment(s) for class {ClassId} referencing missing students",
+                orphanedEnrollments.Count,
+                id);
+        }
+
         var enrolledStudentIds = enrollments.Where(e => e.TrainingClassId == id).Select(e => e.StudentId).ToHashSet();
 
         return new ClassDetailDto
@@ -277,7 +315,9 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
             {
                 Id = s.Id,
                 Name = s.Name,
-                EntryCount = entries.Count(e => e.ScheduleId == s.Id)
+                EntryCount = entries.Count(e => e.ScheduleId == s.Id),
+                StartDate = s.StartDate,
+                EndDate = s.EndDate
             })
             .ToList();
     }
@@ -299,6 +339,8 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         {
             Id = schedule.Id,
             Name = schedule.Name,
+            StartDate = schedule.StartDate,
+            EndDate = schedule.EndDate,
             Entries = entries
                 .Where(e => e.ScheduleId == scheduleId)
                 .Select(e => ToEntryDto(e, classes, students, enrollments))
@@ -316,6 +358,60 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         return new ScheduleSummaryDto { Id = schedule.Id, Name = schedule.Name, EntryCount = 0 };
     }
 
+    public async Task<ScheduleSummaryDto> UpdateScheduleAsync(Guid scheduleId, DateOnly? startDate, DateOnly? endDate)
+    {
+        var schedules = await dataStore.GetSchedulesAsync();
+        var schedule = schedules.FirstOrDefault(s => s.Id == scheduleId);
+        if (schedule is null)
+        {
+            throw new ClassPlannerNotFoundException("Schedule was not found.");
+        }
+
+        schedule.StartDate = startDate;
+        schedule.EndDate = endDate;
+        await dataStore.SaveSchedulesAsync(schedules);
+        logger.LogInformation("Schedule updated {ScheduleId}", scheduleId);
+
+        var entries = await dataStore.GetScheduledClassesAsync();
+        return new ScheduleSummaryDto
+        {
+            Id = schedule.Id,
+            Name = schedule.Name,
+            EntryCount = entries.Count(e => e.ScheduleId == scheduleId),
+            StartDate = schedule.StartDate,
+            EndDate = schedule.EndDate
+        };
+    }
+
+    public async Task<ScheduleSummaryDto> RenameScheduleAsync(Guid scheduleId, string name)
+    {
+        var schedules = await dataStore.GetSchedulesAsync();
+        var schedule = schedules.FirstOrDefault(s => s.Id == scheduleId);
+        if (schedule is null)
+        {
+            throw new ClassPlannerNotFoundException("Schedule was not found.");
+        }
+
+        if (schedules.Any(s => s.Id != scheduleId && string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ClassPlannerConflictException($"A schedule named \"{name}\" already exists.");
+        }
+
+        schedule.Name = name;
+        await dataStore.SaveSchedulesAsync(schedules);
+        logger.LogInformation("Schedule renamed {ScheduleId}", scheduleId);
+
+        var entries = await dataStore.GetScheduledClassesAsync();
+        return new ScheduleSummaryDto
+        {
+            Id = schedule.Id,
+            Name = schedule.Name,
+            EntryCount = entries.Count(e => e.ScheduleId == scheduleId),
+            StartDate = schedule.StartDate,
+            EndDate = schedule.EndDate
+        };
+    }
+
     public async Task DeleteScheduleAsync(Guid scheduleId)
     {
         var schedules = await dataStore.GetSchedulesAsync();
@@ -331,6 +427,19 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         var entries = await dataStore.GetScheduledClassesAsync();
         entries.RemoveAll(e => e.ScheduleId == scheduleId);
         await dataStore.SaveScheduledClassesAsync(entries);
+
+        var classes = await dataStore.GetClassesAsync();
+        var classIdsToDelete = classes.Where(c => c.ScheduleId == scheduleId).Select(c => c.Id).ToHashSet();
+        if (classIdsToDelete.Count > 0)
+        {
+            classes.RemoveAll(c => classIdsToDelete.Contains(c.Id));
+            await dataStore.SaveClassesAsync(classes);
+
+            var enrollments = await dataStore.GetEnrollmentsAsync();
+            enrollments.RemoveAll(e => classIdsToDelete.Contains(e.TrainingClassId));
+            await dataStore.SaveEnrollmentsAsync(enrollments);
+        }
+
         logger.LogInformation("Schedule deleted {ScheduleId}", scheduleId);
     }
 
@@ -571,10 +680,11 @@ public class ClassPlannerService(IDataStore dataStore, ILogger<ClassPlannerServi
         logger.LogInformation("Scheduled class removed {EntryId}", entryId);
     }
 
-    private static ClassSummaryDto ToClassSummary(TrainingClass trainingClass, List<Enrollment> enrollments) => new()
+    private static ClassSummaryDto ToClassSummary(TrainingClass trainingClass, List<Enrollment> enrollments, List<Schedule> schedules) => new()
     {
         Id = trainingClass.Id,
         ScheduleId = trainingClass.ScheduleId,
+        ScheduleName = schedules.FirstOrDefault(s => s.Id == trainingClass.ScheduleId)?.Name ?? "",
         Name = trainingClass.Name,
         EnrollmentCount = enrollments.Count(e => e.TrainingClassId == trainingClass.Id)
     };

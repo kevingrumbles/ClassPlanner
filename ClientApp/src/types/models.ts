@@ -8,6 +8,7 @@ export interface StudentSummary {
 export interface ClassSummary {
   id: string;
   scheduleId: string;
+  scheduleName: string;
   name: string;
   enrollmentCount: number;
 }
@@ -18,6 +19,7 @@ export interface StudentDetail {
   lastName: string;
   email?: string | null;
   phone?: string | null;
+  emergencyContact?: string | null;
   notes?: string | null;
   enrolledClasses: ClassSummary[];
 }
@@ -43,6 +45,8 @@ export interface ScheduleSummary {
   id: string;
   name: string;
   entryCount: number;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 export interface ScheduledClassEntry {
@@ -62,6 +66,8 @@ export interface ScheduledClassEntry {
 export interface ScheduleDetail {
   id: string;
   name: string;
+  startDate?: string | null;
+  endDate?: string | null;
   entries: ScheduledClassEntry[];
 }
 

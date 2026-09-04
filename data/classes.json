@@ -1,88 +1,24 @@
 [
   {
-    "Id": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
-    "ScheduleId": "591c50c0-9d1e-4268-b5ad-724972f3cb37",
-    "Name": "class test",
+    "Id": "6a722cc7-4aee-4b96-9ea7-a947ecf68776",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "Name": "Beginner Class",
     "Description": null,
     "InstructorId": null,
     "Notes": null
   },
   {
-    "Id": "b36ebe87-6232-41e9-8eef-e042ad016eaf",
-    "ScheduleId": "591c50c0-9d1e-4268-b5ad-724972f3cb37",
-    "Name": "4",
+    "Id": "e76f9853-7abc-4f66-ba24-f8c144bd4e79",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "Name": "Intermediate Class",
     "Description": null,
     "InstructorId": null,
     "Notes": null
   },
   {
-    "Id": "10ed975f-1210-4eac-aecd-9565d305e24e",
-    "ScheduleId": "37cf8dce-daa7-4280-a56a-923d4d619468",
-    "Name": "3rd schedule class",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
-    "ScheduleId": "f03215d3-7051-4cfd-876f-79df2805f28f",
-    "Name": "class test",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "33947891-b738-438a-952a-fd1d29173e85",
-    "ScheduleId": "f03215d3-7051-4cfd-876f-79df2805f28f",
-    "Name": "4",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
-    "ScheduleId": "24736e0a-b5e2-47f3-bbd2-4a55696e950f",
-    "Name": "class test",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "092c19d1-e79d-4483-b2c0-16842c17b7b8",
-    "ScheduleId": "24736e0a-b5e2-47f3-bbd2-4a55696e950f",
-    "Name": "4",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
-    "ScheduleId": "5e2abf2b-1796-441c-be7a-de87f5c7dfd6",
-    "Name": "class test",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "0fd55354-1417-4797-bbe1-5c3b7c4e3f89",
-    "ScheduleId": "5e2abf2b-1796-441c-be7a-de87f5c7dfd6",
-    "Name": "4",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
-    "ScheduleId": "1d28eedc-bde7-4a32-af84-590d8686ce1e",
-    "Name": "class test",
-    "Description": null,
-    "InstructorId": null,
-    "Notes": null
-  },
-  {
-    "Id": "507defe7-7117-4a75-bd88-5b700d9699cf",
-    "ScheduleId": "1d28eedc-bde7-4a32-af84-590d8686ce1e",
-    "Name": "4",
+    "Id": "175ddd00-507e-409e-a1d6-b78fc61f0b73",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "Name": "Advanced Class",
     "Description": null,
     "InstructorId": null,
     "Notes": null

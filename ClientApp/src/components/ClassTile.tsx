@@ -5,9 +5,10 @@ interface ClassTileProps {
   trainingClass: ClassSummary;
   onSelect: (id: string) => void;
   isDropTarget?: boolean;
+  isSelected?: boolean;
 }
 
-export function ClassTile({ trainingClass, onSelect, isDropTarget }: ClassTileProps) {
+export function ClassTile({ trainingClass, onSelect, isDropTarget, isSelected }: ClassTileProps) {
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: `class:${trainingClass.id}`,
     data: { type: 'class', classId: trainingClass.id },
@@ -26,6 +27,7 @@ export function ClassTile({ trainingClass, onSelect, isDropTarget }: ClassTilePr
   const classNames = ['tile', 'class-tile'];
   if (isDragging) classNames.push('is-dragging');
   if (isDropTarget && isOver && isStudentDragActive) classNames.push('is-drop-ready');
+  if (isSelected) classNames.push('is-selected');
 
   return (
     <button

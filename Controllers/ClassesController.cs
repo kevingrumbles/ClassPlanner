@@ -46,7 +46,7 @@ public class ClassesController(ClassPlannerService service) : ControllerBase
     {
         try
         {
-            var updated = await service.UpdateClassAsync(id, request.Description, request.Notes);
+            var updated = await service.UpdateClassAsync(id, request.Name, request.Description, request.Notes);
             return Ok(updated);
         }
         catch (ClassPlannerNotFoundException ex)

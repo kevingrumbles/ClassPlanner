@@ -48,6 +48,38 @@ public class SchedulesController(ClassPlannerService service) : ControllerBase
         }
     }
 
+    [HttpPut("{scheduleId:guid}")]
+    public async Task<IActionResult> UpdateSchedule(Guid scheduleId, [FromBody] UpdateScheduleRequest request)
+    {
+        try
+        {
+            var updated = await service.UpdateScheduleAsync(scheduleId, request.StartDate, request.EndDate);
+            return Ok(updated);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{scheduleId:guid}/name")]
+    public async Task<IActionResult> RenameSchedule(Guid scheduleId, [FromBody] RenameScheduleRequest request)
+    {
+        try
+        {
+            var updated = await service.RenameScheduleAsync(scheduleId, request.Name);
+            return Ok(updated);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ClassPlannerConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("{scheduleId:guid}/copy")]
     public async Task<IActionResult> CopySchedule(Guid scheduleId, [FromBody] CopyScheduleRequest request)
     {

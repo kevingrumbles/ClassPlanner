@@ -1,34 +1,8 @@
 [
   {
-    "Id": "591c50c0-9d1e-4268-b5ad-724972f3cb37",
-    "Name": "test 2"
-  },
-  {
-    "Id": "37cf8dce-daa7-4280-a56a-923d4d619468",
-    "Name": "3rd schedule"
-  },
-  {
-    "Id": "b1c135f2-8b7f-4be5-ac9d-4c62cea92660",
-    "Name": "Summer Schedule"
-  },
-  {
-    "Id": "d1166316-bd29-45dd-91e7-914878e64ac0",
-    "Name": "Winter Schedule"
-  },
-  {
-    "Id": "f03215d3-7051-4cfd-876f-79df2805f28f",
-    "Name": "Copy of test 2"
-  },
-  {
-    "Id": "24736e0a-b5e2-47f3-bbd2-4a55696e950f",
-    "Name": "new copy"
-  },
-  {
-    "Id": "5e2abf2b-1796-441c-be7a-de87f5c7dfd6",
-    "Name": "5"
-  },
-  {
-    "Id": "1d28eedc-bde7-4a32-af84-590d8686ce1e",
-    "Name": "56"
+    "Id": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "Name": "Summer Schedule",
+    "StartDate": "2026-09-01",
+    "EndDate": null
   }
 ]

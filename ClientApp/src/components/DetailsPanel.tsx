@@ -9,7 +9,15 @@ interface DetailsPanelProps {
   loading?: boolean;
   onRemoveEnrollment?: (studentId: string, classId: string) => void;
   onDeleteStudent?: (studentId: string) => void;
-  onSaveStudent?: (studentId: string, email: string | null, phone: string | null, notes: string | null) => void;
+  onSaveStudent?: (
+    studentId: string,
+    firstName: string,
+    lastName: string,
+    email: string | null,
+    phone: string | null,
+    emergencyContact: string | null,
+    notes: string | null
+  ) => void;
   onRemoveScheduledClass?: (entryId: string) => void;
   onSaveScheduledClass?: (
     entryId: string,
@@ -18,7 +26,7 @@ interface DetailsPanelProps {
     duration: string,
     location: string | null
   ) => void;
-  onSaveClass?: (classId: string, description: string | null, notes: string | null) => void;
+  onSaveClass?: (classId: string, name: string, description: string | null, notes: string | null) => void;
 }
 
 const DAY_OPTIONS: DayOfWeekIndex[] = [0, 1, 2, 3, 4, 5, 6];
@@ -90,33 +98,69 @@ interface StudentFieldsProps {
   student: StudentDetail;
   onRemoveEnrollment?: (studentId: string, classId: string) => void;
   onDeleteStudent?: (studentId: string) => void;
-  onSaveStudent?: (studentId: string, email: string | null, phone: string | null, notes: string | null) => void;
+  onSaveStudent?: (
+    studentId: string,
+    firstName: string,
+    lastName: string,
+    email: string | null,
+    phone: string | null,
+    emergencyContact: string | null,
+    notes: string | null
+  ) => void;
 }
 
 function StudentFields({ student, onRemoveEnrollment, onDeleteStudent, onSaveStudent }: StudentFieldsProps) {
+  const [fullName, setFullName] = useState(`${student.firstName} ${student.lastName}`.trim());
   const [email, setEmail] = useState(student.email ?? '');
   const [phone, setPhone] = useState(student.phone ?? '');
+  const [emergencyContact, setEmergencyContact] = useState(student.emergencyContact ?? '');
   const [notes, setNotes] = useState(student.notes ?? '');
 
-  const isDirty =
-    email !== (student.email ?? '') || phone !== (student.phone ?? '') || notes !== (student.notes ?? '');
+  function splitName(name: string): { firstName: string; lastName: string } {
+    const trimmed = name.trim();
+    const spaceIndex = trimmed.lastIndexOf(' ');
+    if (spaceIndex === -1) {
+      return { firstName: trimmed, lastName: '' };
+    }
+    return { firstName: trimmed.slice(0, spaceIndex), lastName: trimmed.slice(spaceIndex + 1) };
+  }
+
+  function commit(next: {
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    emergencyContact?: string;
+    notes?: string;
+  }) {
+    const nextFullName = next.fullName ?? fullName;
+    const nextEmail = next.email ?? email;
+    const nextPhone = next.phone ?? phone;
+    const nextEmergencyContact = next.emergencyContact ?? emergencyContact;
+    const nextNotes = next.notes ?? notes;
+    const { firstName, lastName } = splitName(nextFullName);
+    onSaveStudent?.(
+      student.id,
+      firstName,
+      lastName,
+      nextEmail || null,
+      nextPhone || null,
+      nextEmergencyContact || null,
+      nextNotes || null
+    );
+  }
 
   return (
     <div>
       <div className="class-view-header">
         <h2>
-          {student.firstName} {student.lastName}
+          <EditableText
+            value={fullName}
+            placeholder="Student name"
+            onChange={setFullName}
+            onCommit={(value) => commit({ fullName: value })}
+          />
         </h2>
         <div className="class-view-header-actions">
-          {isDirty && onSaveStudent && (
-            <button
-              type="button"
-              className="class-view-save"
-              onClick={() => onSaveStudent(student.id, email || null, phone || null, notes || null)}
-            >
-              Save Changes
-            </button>
-          )}
           {onDeleteStudent && (
             <button
               type="button"
@@ -131,19 +175,39 @@ function StudentFields({ student, onRemoveEnrollment, onDeleteStudent, onSaveStu
       <dl>
         <dt>Email</dt>
         <dd>
-          <input type="text" className="class-view-input" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <EditableText
+            value={email}
+            placeholder="—"
+            onChange={setEmail}
+            onCommit={(value) => commit({ email: value })}
+          />
         </dd>
         <dt>Phone</dt>
         <dd>
-          <input type="text" className="class-view-input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <EditableText
+            value={phone}
+            placeholder="—"
+            onChange={setPhone}
+            onCommit={(value) => commit({ phone: value })}
+          />
+        </dd>
+        <dt>Emergency Contact</dt>
+        <dd>
+          <EditableText
+            value={emergencyContact}
+            placeholder="—"
+            onChange={setEmergencyContact}
+            onCommit={(value) => commit({ emergencyContact: value })}
+          />
         </dd>
         <dt>Notes</dt>
         <dd>
-          <textarea
-            className="class-view-textarea"
+          <EditableText
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
+            placeholder="—"
+            multiline
+            onChange={setNotes}
+            onCommit={(value) => commit({ notes: value })}
           />
         </dd>
       </dl>
@@ -153,6 +217,7 @@ function StudentFields({ student, onRemoveEnrollment, onDeleteStudent, onSaveStu
         {student.enrolledClasses.map((c) => (
           <li key={c.id}>
             {c.name} ({c.enrollmentCount} {c.enrollmentCount === 1 ? 'student' : 'students'})
+            {c.scheduleName && <span className="editable-text-placeholder"> &mdash; {c.scheduleName}</span>}
             {onRemoveEnrollment && (
               <button type="button" onClick={() => onRemoveEnrollment(student.id, c.id)}>
                 Remove
@@ -165,6 +230,81 @@ function StudentFields({ student, onRemoveEnrollment, onDeleteStudent, onSaveStu
   );
 }
 
+interface EditableTextProps {
+  value: string;
+  placeholder?: string;
+  multiline?: boolean;
+  onChange: (value: string) => void;
+  onCommit: (value: string) => void;
+}
+
+/** Renders a value as plain text; clicking it swaps in an input/textarea that saves on blur or Enter. */
+function EditableText({ value, placeholder, multiline, onChange, onCommit }: EditableTextProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  function startEditing() {
+    setDraft(value);
+    setIsEditing(true);
+  }
+
+  function commit() {
+    setIsEditing(false);
+    if (draft !== value) {
+      onChange(draft);
+      onCommit(draft);
+    }
+  }
+
+  function cancel() {
+    setDraft(value);
+    setIsEditing(false);
+  }
+
+  if (!isEditing) {
+    return (
+      <span className="editable-text" onClick={startEditing}>
+        {value || <span className="editable-text-placeholder">{placeholder ?? 'Click to edit'}</span>}
+      </span>
+    );
+  }
+
+  if (multiline) {
+    return (
+      <textarea
+        className="class-view-textarea"
+        value={draft}
+        autoFocus
+        rows={2}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') cancel();
+        }}
+      />
+    );
+  }
+
+  return (
+    <input
+      type="text"
+      className="class-view-input"
+      value={draft}
+      autoFocus
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur();
+        } else if (e.key === 'Escape') {
+          cancel();
+        }
+      }}
+    />
+  );
+}
+
+
 interface ScheduledClassFieldsProps {
   scheduledClassDetail: ScheduledClassDetail;
   onRemoveScheduledClass?: (entryId: string) => void;
@@ -176,7 +316,7 @@ interface ScheduledClassFieldsProps {
     location: string | null
   ) => void;
   onRemoveEnrollment?: (studentId: string, classId: string) => void;
-  onSaveClass?: (classId: string, description: string | null, notes: string | null) => void;
+  onSaveClass?: (classId: string, name: string, description: string | null, notes: string | null) => void;
 }
 
 function ScheduledClassFields({
@@ -242,7 +382,12 @@ function ScheduledClassFields({
               (classDescription !== (scheduledClassDetail.classDescription ?? '') ||
                 classNotes !== (scheduledClassDetail.classNotes ?? ''))
             ) {
-              onSaveClass(scheduledClassDetail.trainingClassId, classDescription || null, classNotes || null);
+              onSaveClass(
+                scheduledClassDetail.trainingClassId,
+                scheduledClassDetail.trainingClassName ?? '',
+                classDescription || null,
+                classNotes || null
+              );
             }
           }}
         >

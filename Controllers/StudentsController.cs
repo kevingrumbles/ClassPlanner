@@ -53,7 +53,7 @@ public class StudentsController(ClassPlannerService service) : ControllerBase
     {
         try
         {
-            var updated = await service.UpdateStudentAsync(id, request.Email, request.Phone, request.Notes);
+            var updated = await service.UpdateStudentAsync(id, request.FirstName, request.LastName, request.Email, request.Phone, request.EmergencyContact, request.Notes);
             return Ok(updated);
         }
         catch (ClassPlannerNotFoundException ex)

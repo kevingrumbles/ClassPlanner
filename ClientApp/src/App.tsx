@@ -63,6 +63,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const loadSchedule = async () => {
       if (!activeScheduleId) {
         setActiveScheduleDetail(undefined);
@@ -74,13 +75,18 @@ function App() {
           api.getScheduleDetail(activeScheduleId),
           api.getClasses(activeScheduleId),
         ]);
+        if (cancelled) return;
         setActiveScheduleDetail(scheduleDetail);
         setClasses(classesData);
       } catch (err) {
+        if (cancelled) return;
         setError(err instanceof ApiError ? err.message : 'Unable to load schedule.');
       }
     };
     loadSchedule();
+    return () => {
+      cancelled = true;
+    };
   }, [activeScheduleId]);
 
   useEffect(() => {
@@ -291,6 +297,7 @@ function App() {
         setSelected(null);
       }
       setSchedules(await api.getSchedules());
+      setStudents(await api.getStudents());
       if (activeScheduleId) {
         setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
       }
@@ -301,22 +308,34 @@ function App() {
 
   async function handleSaveStudent(
     studentId: string,
+    firstName: string,
+    lastName: string,
     email: string | null,
     phone: string | null,
+    emergencyContact: string | null,
     notes: string | null
   ) {
     try {
-      const updated = await api.updateStudent(studentId, email, phone, notes);
+      const updated = await api.updateStudent(studentId, firstName, lastName, email, phone, emergencyContact, notes);
       setStudentDetail(updated);
+      setStudents((prev) =>
+        prev.map((s) => (s.id === studentId ? { ...s, firstName: updated.firstName, lastName: updated.lastName } : s))
+      );
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to save student changes.');
     }
   }
 
-  async function handleSaveClass(classId: string, description: string | null, notes: string | null) {
+  async function handleSaveClass(
+    classId: string,
+    name: string,
+    description: string | null,
+    notes: string | null
+  ) {
     try {
-      const updated = await api.updateClass(classId, description, notes);
+      const updated = await api.updateClass(classId, name, description, notes);
       setClassDetail(updated);
+      setClasses((prev) => prev.map((c) => (c.id === classId ? { ...c, name: updated.name } : c)));
       if (selected?.type === 'scheduledClass') {
         setScheduledClassDetail(await api.getScheduledClassDetail(selected.scheduleId, selected.entryId));
       }
@@ -358,8 +377,31 @@ function App() {
       setSchedules(remaining);
       setActiveScheduleId(remaining[0]?.id ?? null);
       setSelected(null);
+      setStudents(await api.getStudents());
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to delete schedule.');
+    }
+  }
+
+  async function handleSaveScheduleDates(startDate: string | null, endDate: string | null) {
+    if (!activeScheduleId) return;
+    try {
+      const updated = await api.updateSchedule(activeScheduleId, startDate, endDate);
+      setSchedules((prev) => prev.map((s) => (s.id === activeScheduleId ? updated : s)));
+      setActiveScheduleDetail((prev) => (prev ? { ...prev, startDate: updated.startDate, endDate: updated.endDate } : prev));
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to save schedule dates.');
+    }
+  }
+
+  async function handleRenameSchedule(name: string) {
+    if (!activeScheduleId) return;
+    try {
+      const updated = await api.renameSchedule(activeScheduleId, name);
+      setSchedules((prev) => prev.map((s) => (s.id === activeScheduleId ? updated : s)));
+      setActiveScheduleDetail((prev) => (prev ? { ...prev, name: updated.name } : prev));
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to rename schedule.');
     }
   }
 
@@ -375,6 +417,7 @@ function App() {
         setSchedules((prev) => [...prev, copy]);
         setActiveScheduleId(copy.id);
         setSelected(null);
+        setStudents(await api.getStudents());
         return;
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -490,6 +533,7 @@ function App() {
                   trainingClass={trainingClass}
                   onSelect={(id) => setSelected({ type: 'class', id })}
                   isDropTarget
+                  isSelected={selected?.type === 'class' && selected.id === trainingClass.id}
                 />
               ))}
             </div>
@@ -517,12 +561,17 @@ function App() {
               />
             ) : (
               <Calendar
+                key={activeScheduleDetail?.id ?? activeScheduleId ?? 'none'}
                 entries={activeScheduleDetail?.entries ?? []}
                 hours={HOURS}
                 onSelectEntry={(entryId) =>
                   activeScheduleId && setSelected({ type: 'scheduledClass', scheduleId: activeScheduleId, entryId })
                 }
                 scheduleName={activeScheduleDetail?.name}
+                startDate={activeScheduleDetail?.startDate}
+                endDate={activeScheduleDetail?.endDate}
+                onSaveScheduleDates={activeScheduleId ? handleSaveScheduleDates : undefined}
+                onRenameSchedule={activeScheduleId ? handleRenameSchedule : undefined}
               />
             )}
           </main>
@@ -534,7 +583,12 @@ function App() {
             </button>
             <div className="tile-list">
               {students.map((student) => (
-                <StudentTile key={student.id} student={student} onSelect={(id) => setSelected({ type: 'student', id })} />
+                <StudentTile
+                  key={student.id}
+                  student={student}
+                  onSelect={(id) => setSelected({ type: 'student', id })}
+                  isSelected={selected?.type === 'student' && selected.id === student.id}
+                />
               ))}
             </div>
           </aside>

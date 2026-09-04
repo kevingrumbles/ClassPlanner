@@ -1,4 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
+import { useState } from 'react';
 import type { ScheduledClassEntry } from '../types/models';
 import { CalendarSlot } from './CalendarSlot';
 import { DAY_NAMES, formatDuration, formatHourLabel, parseDurationMinutes } from './format';
@@ -8,7 +9,11 @@ interface CalendarProps {
   hours: number[];
   onSelectEntry: (entryId: string) => void;
   scheduleName?: string;
+  startDate?: string | null;
+  endDate?: string | null;
   onDeleteSchedule?: () => void;
+  onSaveScheduleDates?: (startDate: string | null, endDate: string | null) => void;
+  onRenameSchedule?: (name: string) => void;
 }
 
 interface DraggableEntryProps {
@@ -58,9 +63,26 @@ function DraggableEntry({ entry, onSelectEntry }: DraggableEntryProps) {
 const QUARTER_MINUTES = [0, 15, 30, 45] as const;
 
 /** Renders a Monday-Sunday weekly schedule grid with no specific dates, only day-of-week + time-of-day placement. */
-export function Calendar({ entries, hours, onSelectEntry, scheduleName, onDeleteSchedule }: CalendarProps) {
+export function Calendar({
+  entries,
+  hours,
+  onSelectEntry,
+  scheduleName,
+  startDate,
+  endDate,
+  onDeleteSchedule,
+  onSaveScheduleDates,
+  onRenameSchedule,
+}: CalendarProps) {
   // Display order Monday(1) .. Sunday(0), matching typical weekly schedule conventions.
   const orderedDays = [1, 2, 3, 4, 5, 6, 0] as const;
+
+  const [draftStartDate, setDraftStartDate] = useState(startDate ?? '');
+  const [draftEndDate, setDraftEndDate] = useState(endDate ?? '');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [draftName, setDraftName] = useState(scheduleName ?? '');
+
+  const isDirty = draftStartDate !== (startDate ?? '') || draftEndDate !== (endDate ?? '');
 
   function entriesFor(dayOfWeek: number, hour: number) {
     return entries.filter((e) => {
@@ -71,11 +93,79 @@ export function Calendar({ entries, hours, onSelectEntry, scheduleName, onDelete
     });
   }
 
+  function startEditingName() {
+    if (!onRenameSchedule) return;
+    setDraftName(scheduleName ?? '');
+    setIsEditingName(true);
+  }
+
+  function commitNameEdit() {
+    setIsEditingName(false);
+    const trimmed = draftName.trim();
+    if (onRenameSchedule && trimmed && trimmed !== scheduleName) {
+      onRenameSchedule(trimmed);
+    }
+  }
+
+  function cancelNameEdit() {
+    setIsEditingName(false);
+    setDraftName(scheduleName ?? '');
+  }
+
   return (
     <div className="calendar">
       {(scheduleName || onDeleteSchedule) && (
         <div className="calendar-toolbar">
-          {scheduleName && <span className="calendar-toolbar-title">{scheduleName}</span>}
+          {scheduleName && !isEditingName && (
+            <span
+              className={`calendar-toolbar-title${onRenameSchedule ? ' calendar-toolbar-title-editable' : ''}`}
+              onClick={startEditingName}
+            >
+              {scheduleName}
+            </span>
+          )}
+          {scheduleName && isEditingName && (
+            <input
+              type="text"
+              className="calendar-toolbar-title-input"
+              value={draftName}
+              autoFocus
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={commitNameEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  cancelNameEdit();
+                }
+              }}
+            />
+          )}
+          {onSaveScheduleDates && (
+            <div className="calendar-toolbar-dates">
+              <label className="calendar-toolbar-date-field">
+                Start
+                <input
+                  type="date"
+                  value={draftStartDate}
+                  onChange={(e) => setDraftStartDate(e.target.value)}
+                />
+              </label>
+              <label className="calendar-toolbar-date-field">
+                End
+                <input type="date" value={draftEndDate} onChange={(e) => setDraftEndDate(e.target.value)} />
+              </label>
+              {isDirty && (
+                <button
+                  type="button"
+                  className="class-view-save"
+                  onClick={() => onSaveScheduleDates(draftStartDate || null, draftEndDate || null)}
+                >
+                  Save Changes
+                </button>
+              )}
+            </div>
+          )}
           {onDeleteSchedule && (
             <button type="button" className="calendar-delete-schedule" onClick={onDeleteSchedule}>
               Delete Schedule

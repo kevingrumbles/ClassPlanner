@@ -1,188 +1,26 @@
 [
   {
-    "Id": "a5d60865-b218-4ebb-8c7e-cda49c0ff220",
-    "StudentId": "dfa314cf-4e14-4a51-9e08-2194ed26917a",
-    "TrainingClassId": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
-    "CreatedAtUtc": "2026-09-01T23:40:20.0286512Z"
-  },
-  {
-    "Id": "f7ccd07c-0cf8-46a5-92da-b872012a0f42",
-    "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
-    "TrainingClassId": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
-    "CreatedAtUtc": "2026-09-02T00:52:44.3029207Z"
-  },
-  {
-    "Id": "a2d0cba1-1b83-4ec5-ab00-bc8eac3fb616",
-    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
-    "TrainingClassId": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
-    "CreatedAtUtc": "2026-09-02T02:03:51.9702278Z"
-  },
-  {
-    "Id": "feb47e13-02e0-4f62-a4ab-35ae5e6b4782",
+    "Id": "ac73ffff-3863-4ba7-a8d2-c6fd2cfee45c",
     "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
-    "TrainingClassId": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
-    "CreatedAtUtc": "2026-09-02T02:17:31.8634554Z"
+    "TrainingClassId": "6a722cc7-4aee-4b96-9ea7-a947ecf68776",
+    "CreatedAtUtc": "2026-09-04T05:18:45.2986176Z"
   },
   {
-    "Id": "c76d2da4-0e7f-45c9-8bf0-7b00067e6c83",
-    "StudentId": "286d68da-2b17-40b4-923b-87dc513d210e",
-    "TrainingClassId": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
-    "CreatedAtUtc": "2026-09-02T02:21:05.269278Z"
-  },
-  {
-    "Id": "0027d809-a96d-467c-b4ba-fed5b8c1108b",
-    "StudentId": "42fbbdca-b659-4660-a1d3-d00cf2d36ff7",
-    "TrainingClassId": "ceed64b9-79b5-43ab-b8a8-29964c376c3f",
-    "CreatedAtUtc": "2026-09-02T02:21:13.6005335Z"
-  },
-  {
-    "Id": "fe574544-6e54-4ecb-8ae7-684648f47f9d",
+    "Id": "53479310-e3a1-4d58-b0c1-878cbf32c308",
     "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
-    "TrainingClassId": "10ed975f-1210-4eac-aecd-9565d305e24e",
-    "CreatedAtUtc": "2026-09-02T02:21:56.2425046Z"
+    "TrainingClassId": "e76f9853-7abc-4f66-ba24-f8c144bd4e79",
+    "CreatedAtUtc": "2026-09-04T05:18:46.9794666Z"
   },
   {
-    "Id": "83913ade-2a6e-4e4f-8814-c430896f071f",
-    "StudentId": "dfa314cf-4e14-4a51-9e08-2194ed26917a",
-    "TrainingClassId": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
-    "CreatedAtUtc": "2026-09-04T02:27:22.033062Z"
-  },
-  {
-    "Id": "0a147241-4b5c-43cf-b368-6a2e52a7a5d3",
-    "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
-    "TrainingClassId": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
-    "CreatedAtUtc": "2026-09-04T02:27:22.0330652Z"
-  },
-  {
-    "Id": "df8982f0-0b74-4fe3-854c-be56b16f82d7",
+    "Id": "b5b6d2a5-98c9-4576-9642-0b50c7ecf75d",
     "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
-    "TrainingClassId": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
-    "CreatedAtUtc": "2026-09-04T02:27:22.033066Z"
+    "TrainingClassId": "175ddd00-507e-409e-a1d6-b78fc61f0b73",
+    "CreatedAtUtc": "2026-09-04T05:18:50.3592834Z"
   },
   {
-    "Id": "b77a9891-95af-4615-a198-bc5820e98ae7",
-    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
-    "TrainingClassId": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
-    "CreatedAtUtc": "2026-09-04T02:27:22.0330665Z"
-  },
-  {
-    "Id": "046fafe2-1198-4651-a7c8-26b41830d8d0",
-    "StudentId": "286d68da-2b17-40b4-923b-87dc513d210e",
-    "TrainingClassId": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
-    "CreatedAtUtc": "2026-09-04T02:27:22.033067Z"
-  },
-  {
-    "Id": "9be459f2-0681-4a41-b35a-8bc6cab31f02",
-    "StudentId": "42fbbdca-b659-4660-a1d3-d00cf2d36ff7",
-    "TrainingClassId": "099c9e03-9dcd-49ca-85f4-29017ebfd15a",
-    "CreatedAtUtc": "2026-09-04T02:27:22.0330673Z"
-  },
-  {
-    "Id": "fd876496-165a-48d3-8672-aa8c1514dd0d",
-    "StudentId": "dfa314cf-4e14-4a51-9e08-2194ed26917a",
-    "TrainingClassId": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
-    "CreatedAtUtc": "2026-09-04T02:30:37.34064Z"
-  },
-  {
-    "Id": "9de43cea-5154-4d70-afde-3d4373a51429",
-    "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
-    "TrainingClassId": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
-    "CreatedAtUtc": "2026-09-04T02:30:37.3406422Z"
-  },
-  {
-    "Id": "386ede57-563a-45e1-b908-6d66da06cbf0",
-    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
-    "TrainingClassId": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
-    "CreatedAtUtc": "2026-09-04T02:30:37.3406428Z"
-  },
-  {
-    "Id": "c1e9cbfd-8e16-42d2-b976-337427927278",
-    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
-    "TrainingClassId": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
-    "CreatedAtUtc": "2026-09-04T02:30:37.3406432Z"
-  },
-  {
-    "Id": "7598f0cc-0214-4973-89f8-fdbe54b06848",
-    "StudentId": "286d68da-2b17-40b4-923b-87dc513d210e",
-    "TrainingClassId": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
-    "CreatedAtUtc": "2026-09-04T02:30:37.3406435Z"
-  },
-  {
-    "Id": "5c3f3a3d-40b6-45d7-a8d7-ee1857aabcc5",
-    "StudentId": "42fbbdca-b659-4660-a1d3-d00cf2d36ff7",
-    "TrainingClassId": "a2f82fc0-48bc-442e-9cd8-2f40003d0549",
-    "CreatedAtUtc": "2026-09-04T02:30:37.3406438Z"
-  },
-  {
-    "Id": "ca4382b7-7548-447d-bc6b-38be42b512b9",
-    "StudentId": "dfa314cf-4e14-4a51-9e08-2194ed26917a",
-    "TrainingClassId": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
-    "CreatedAtUtc": "2026-09-04T02:30:53.7633832Z"
-  },
-  {
-    "Id": "8347cbf6-c0f1-4282-924d-5e2b6b74986d",
-    "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
-    "TrainingClassId": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
-    "CreatedAtUtc": "2026-09-04T02:30:53.763384Z"
-  },
-  {
-    "Id": "5f982081-8347-4c5e-984e-a58570320590",
-    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
-    "TrainingClassId": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
-    "CreatedAtUtc": "2026-09-04T02:30:53.7633844Z"
-  },
-  {
-    "Id": "c866ce39-5193-49c8-b121-aa5ab26d584a",
-    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
-    "TrainingClassId": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
-    "CreatedAtUtc": "2026-09-04T02:30:53.7633847Z"
-  },
-  {
-    "Id": "680a297d-0393-4fde-b265-0dc75ae51679",
-    "StudentId": "286d68da-2b17-40b4-923b-87dc513d210e",
-    "TrainingClassId": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
-    "CreatedAtUtc": "2026-09-04T02:30:53.7633872Z"
-  },
-  {
-    "Id": "ef2adeab-b97e-4bf2-b345-dc3c588ca109",
-    "StudentId": "42fbbdca-b659-4660-a1d3-d00cf2d36ff7",
-    "TrainingClassId": "0c745a8b-c423-47c9-9f08-3ab0e0033f72",
-    "CreatedAtUtc": "2026-09-04T02:30:53.7633876Z"
-  },
-  {
-    "Id": "a5a82266-a914-44f1-96f8-04d5823f4ce4",
-    "StudentId": "dfa314cf-4e14-4a51-9e08-2194ed26917a",
-    "TrainingClassId": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
-    "CreatedAtUtc": "2026-09-04T02:33:08.7197501Z"
-  },
-  {
-    "Id": "6de4faf3-bda6-43f0-a7b4-90b830983a06",
-    "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
-    "TrainingClassId": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
-    "CreatedAtUtc": "2026-09-04T02:33:08.7197543Z"
-  },
-  {
-    "Id": "88853e71-0868-44df-91f7-47ed48837f4a",
-    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
-    "TrainingClassId": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
-    "CreatedAtUtc": "2026-09-04T02:33:08.7197553Z"
-  },
-  {
-    "Id": "71367b20-d158-4665-a6f9-f0b9cf80ea17",
-    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
-    "TrainingClassId": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
-    "CreatedAtUtc": "2026-09-04T02:33:08.7197558Z"
-  },
-  {
-    "Id": "95fda6c6-c2ce-4198-804f-9ba0bc19e5eb",
-    "StudentId": "286d68da-2b17-40b4-923b-87dc513d210e",
-    "TrainingClassId": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
-    "CreatedAtUtc": "2026-09-04T02:33:08.7197562Z"
-  },
-  {
-    "Id": "af43e9a9-c80e-4da0-938f-78eecadba1e7",
-    "StudentId": "42fbbdca-b659-4660-a1d3-d00cf2d36ff7",
-    "TrainingClassId": "cf07410f-4557-4a96-b074-6e83e5ae5cc7",
-    "CreatedAtUtc": "2026-09-04T02:33:08.7197567Z"
+    "Id": "1dad89f0-a0cb-42ba-bf22-92827b962d70",
+    "StudentId": "b455640d-7e5c-4f3f-94a5-06c235f9a07d",
+    "TrainingClassId": "175ddd00-507e-409e-a1d6-b78fc61f0b73",
+    "CreatedAtUtc": "2026-09-04T05:18:51.7763615Z"
   }
 ]
