@@ -22,5 +22,17 @@
     "Location": null,
     "RecurrenceType": 0,
     "Title": null
+  },
+  {
+    "Id": "8c1e3b2b-b21e-4013-ac17-f3b231d5d4f4",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "TrainingClassId": null,
+    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
+    "DayOfWeek": 4,
+    "StartTime": "08:45:00",
+    "Duration": "00:30:00",
+    "Location": null,
+    "RecurrenceType": 0,
+    "Title": null
   }
 ]

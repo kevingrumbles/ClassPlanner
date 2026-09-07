@@ -29,6 +29,8 @@ function App() {
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [classes, setClasses] = useState<ClassSummary[]>([]);
   const [schedules, setSchedules] = useState<ScheduleSummary[]>([]);
+  const [viewMode, setViewMode] = useState<'schedule' | 'calendar'>('schedule');
+  const [calendarViewDate, setCalendarViewDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
   const [activeScheduleDetail, setActiveScheduleDetail] = useState<ScheduleDetail>();
   const [selected, setSelected] = useState<SelectedObject>(null);
@@ -566,12 +568,19 @@ function App() {
         <header className="tool-ribbon">
           <h1>Class Planner</h1>
           <div className="google-status">
+            <button
+              type="button"
+              className="view-mode-toggle"
+              onClick={() => setViewMode((prev) => (prev === 'schedule' ? 'calendar' : 'schedule'))}
+            >
+              {viewMode === 'schedule' ? 'Calendar View' : 'Schedule View'}
+            </button>
             {googleStatus.connected && (
               <span className="google-status-connected">
                 Google Calendar Connected{googleStatus.email ? ` (${googleStatus.email})` : ''}
               </span>
             )}
-            {activeScheduleId && (
+            {viewMode === 'schedule' && activeScheduleId && (
               <button
                 type="button"
                 className="calendar-update-google-calendar"
@@ -605,56 +614,73 @@ function App() {
 
         <div className="app-main">
           <div className="top-pane">
-            <div className="tile-row">
-              {schedules.map((schedule) => (
-                <ScheduleTile
-                  key={schedule.id}
-                  schedule={schedule}
-                  isActive={schedule.id === activeScheduleId}
-                  onSelect={(id) => {
-                    setActiveScheduleId(id);
-                    setSelected(null);
-                  }}
-                />
-              ))}
-            </div>
-            <div className="top-pane-actions">
-              <button type="button" onClick={handleCreateSchedule}>
-                New Schedule
-              </button>
-              {activeScheduleId && (
-                <button type="button" onClick={handleCopySchedule}>
-                  Copy Schedule
-                </button>
-              )}
-              {activeScheduleId && (
-                <button type="button" onClick={handleDeleteSchedule}>
-                  Delete Schedule
-                </button>
-              )}
-            </div>
+            {viewMode === 'schedule' && (
+              <>
+                <div className="tile-row">
+                  {schedules.map((schedule) => (
+                    <ScheduleTile
+                      key={schedule.id}
+                      schedule={schedule}
+                      isActive={schedule.id === activeScheduleId}
+                      onSelect={(id) => {
+                        setActiveScheduleId(id);
+                        setSelected(null);
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="top-pane-actions">
+                  <button type="button" onClick={handleCreateSchedule}>
+                    New Schedule
+                  </button>
+                  {activeScheduleId && (
+                    <button type="button" onClick={handleCopySchedule}>
+                      Copy Schedule
+                    </button>
+                  )}
+                  {activeScheduleId && (
+                    <button type="button" onClick={handleDeleteSchedule}>
+                      Delete Schedule
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <aside className="left-pane">
-            <h2>Classes</h2>
-            <button type="button" className="pane-section-action" onClick={handleCreateClass} disabled={!activeScheduleId}>
-              New Class
-            </button>
-            <div className="tile-list">
-              {classes.map((trainingClass) => (
-                <ClassTile
-                  key={trainingClass.id}
-                  trainingClass={trainingClass}
-                  onSelect={(id) => setSelected({ type: 'class', id })}
-                  isDropTarget
-                  isSelected={selected?.type === 'class' && selected.id === trainingClass.id}
-                />
-              ))}
-            </div>
+            {viewMode === 'schedule' && (
+              <>
+                <h2>Classes</h2>
+                <button type="button" className="pane-section-action" onClick={handleCreateClass} disabled={!activeScheduleId}>
+                  New Class
+                </button>
+                <div className="tile-list">
+                  {classes.map((trainingClass) => (
+                    <ClassTile
+                      key={trainingClass.id}
+                      trainingClass={trainingClass}
+                      onSelect={(id) => setSelected({ type: 'class', id })}
+                      isDropTarget
+                      isSelected={selected?.type === 'class' && selected.id === trainingClass.id}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </aside>
 
           <main className="focus-pane">
-            {classDetail ? (
+            {viewMode === 'calendar' ? (
+              <Calendar
+                key="calendar-view"
+                entries={[]}
+                hours={HOURS}
+                onSelectEntry={() => {}}
+                viewDate={calendarViewDate}
+                onViewDateChange={setCalendarViewDate}
+              />
+            ) : classDetail ? (
               <ClassView
                 trainingClass={classDetail}
                 onRemoveEnrollment={handleRemoveEnrollment}

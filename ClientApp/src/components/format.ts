@@ -39,3 +39,36 @@ export function formatTimeOfDay(timeSpan: string): string {
   const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
+
+/** Returns the Monday on/before the given ISO date string ("yyyy-MM-dd"). */
+export function startOfWeek(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const dayOfWeek = date.getDay();
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  date.setDate(date.getDate() + diffToMonday);
+  return toIsoDate(date);
+}
+
+/** Adds the given number of days to an ISO date string ("yyyy-MM-dd"). */
+export function addDays(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return toIsoDate(date);
+}
+
+/** Formats a Date as an ISO "yyyy-MM-dd" string using local time components. */
+export function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Formats an ISO date string ("yyyy-MM-dd") as a short label, e.g. "Jan 5, 2025". */
+export function formatDateLabel(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
