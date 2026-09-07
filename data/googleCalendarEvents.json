@@ -1,20 +1,14 @@
 [
   {
-    "ScheduledClassId": "edb50a15-b4b7-46ec-9517-ad48ba11ddbb",
+    "ScheduledClassId": "bfe0f219-816d-479a-a9e0-938e8d81ecdc",
     "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
     "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
-    "EventId": "j3sj6pcadj330hv9h90e6m6vks"
+    "EventId": "rv6a26vpflo3eoa2rlsb1ufu6g"
   },
   {
-    "ScheduledClassId": "fc80eff2-c138-4646-9e89-72b880fca38f",
+    "ScheduledClassId": "48c3d4b4-69e5-488f-8a6e-622f787f2af6",
     "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
     "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
-    "EventId": "5ddvsmom6a6itupug99oh7ncek"
-  },
-  {
-    "ScheduledClassId": "1e10b0cd-4dab-4116-9ba2-799df0c96aec",
-    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
-    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
-    "EventId": "cj8j0plsqmcbn3lguuqkglbfks"
+    "EventId": "00qrtri9qh2a60b5umto7c53t0"
   }
 ]

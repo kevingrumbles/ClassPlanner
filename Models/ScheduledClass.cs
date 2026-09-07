@@ -19,4 +19,10 @@ public class ScheduledClass
     public TimeSpan StartTime { get; set; }
     public TimeSpan Duration { get; set; }
     public string? Location { get; set; }
+
+    /// <summary>How this occurrence repeats. Currently always weekly; more types may be added in the future.</summary>
+    public RecurrenceType RecurrenceType { get; set; } = RecurrenceType.Weekly;
+
+    /// <summary>Optional display title, used for direct appointments imported from external sources.</summary>
+    public string? Title { get; set; }
 }

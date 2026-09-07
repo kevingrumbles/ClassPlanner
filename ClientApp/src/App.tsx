@@ -100,8 +100,10 @@ function App() {
           showError(err.message ?? 'Unable to connect Google Calendar.');
         },
       });
+
+      googleTokenClientRef.current.requestAccessToken({ prompt: '' });
     } catch {
-      // Non-fatal: Connect Google Calendar button will simply be unavailable.
+      // Non-fatal: Google Calendar sync will simply be unavailable.
     }
   };
 
@@ -231,18 +233,24 @@ function App() {
   }
 
   async function refreshDetail() {
-    if (!selected) return;
-    if (selected.type === 'student') {
-      setStudentDetail(await api.getStudent(selected.id));
-    } else if (selected.type === 'class') {
-      setClassDetail(await api.getClass(selected.id));
-    } else if (selected.type === 'scheduledClass') {
-      setScheduledClassDetail(await api.getScheduledClassDetail(selected.scheduleId, selected.entryId));
+    if (selected) {
+      if (selected.type === 'student') {
+        setStudentDetail(await api.getStudent(selected.id));
+      } else if (selected.type === 'class') {
+        setClassDetail(await api.getClass(selected.id));
+      } else if (selected.type === 'scheduledClass') {
+        setScheduledClassDetail(await api.getScheduledClassDetail(selected.scheduleId, selected.entryId));
+      }
     }
     // refresh summary lists to stay in sync
     const [studentsData, classesData] = await Promise.all([api.getStudents(), api.getClasses(activeScheduleId ?? undefined)]);
     setStudents(studentsData);
     setClasses(classesData);
+    // refresh the calendar's schedule entries (e.g. per-class enrollment counts) so the
+    // schedule focus pane reflects new enrollments even when nothing is selected.
+    if (activeScheduleId) {
+      setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
+    }
   }
 
   async function handleScheduleClass(classId: string, dayOfWeek: DayOfWeekIndex, startTime: string) {
@@ -494,14 +502,6 @@ function App() {
     }
   }
 
-  function handleConnectGoogle() {
-    if (!googleTokenClientRef.current) {
-      showError('Google Calendar integration is not configured.');
-      return;
-    }
-    googleTokenClientRef.current.requestAccessToken({ prompt: 'consent' });
-  }
-
   async function handleUpdateGoogleCalendar() {
     if (!activeScheduleId || isUpdatingGoogleCalendar) return;
     setIsUpdatingGoogleCalendar(true);
@@ -566,14 +566,10 @@ function App() {
         <header className="tool-ribbon">
           <h1>Class Planner</h1>
           <div className="google-status">
-            {googleStatus.connected ? (
+            {googleStatus.connected && (
               <span className="google-status-connected">
                 Google Calendar Connected{googleStatus.email ? ` (${googleStatus.email})` : ''}
               </span>
-            ) : (
-              <button type="button" className="google-connect-button" onClick={handleConnectGoogle}>
-                Connect Google Calendar
-              </button>
             )}
             {activeScheduleId && (
               <button

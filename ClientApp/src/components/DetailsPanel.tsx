@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { DayOfWeekIndex, ScheduledClassDetail, StudentDetail } from '../types/models';
-import { DAY_NAMES, parseDurationMinutes } from './format';
+import { DAY_NAMES, formatTimeOfDay, parseDurationMinutes } from './format';
 
 interface DetailsPanelProps {
   student?: StudentDetail;
@@ -223,6 +223,17 @@ function StudentFields({ student, onRemoveEnrollment, onDeleteStudent, onSaveStu
                 Remove
               </button>
             )}
+          </li>
+        ))}
+      </ul>
+      <h3>Scheduled Appointments</h3>
+      {student.scheduledAppointments.length === 0 && <p>No scheduled appointments.</p>}
+      <ul>
+        {student.scheduledAppointments.map((a) => (
+          <li key={a.id}>
+            {DAY_NAMES[a.dayOfWeek]} {formatTimeOfDay(a.startTime)}
+            {a.location && <span className="editable-text-placeholder"> &mdash; {a.location}</span>}
+            <span className="editable-text-placeholder"> &mdash; {a.scheduleName}</span>
           </li>
         ))}
       </ul>

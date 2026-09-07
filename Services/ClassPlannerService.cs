@@ -15,6 +15,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
     {
         var students = await dataStore.GetStudentsAsync();
         var enrollments = await dataStore.GetEnrollmentsAsync();
+        var scheduledClasses = await dataStore.GetScheduledClassesAsync();
 
         return students
             .Select(s => new StudentSummaryDto
@@ -22,7 +23,8 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
                 Id = s.Id,
                 FirstName = s.FirstName,
                 LastName = s.LastName,
-                EnrolledClassCount = enrollments.Count(e => e.StudentId == s.Id)
+                EnrolledClassCount = enrollments.Count(e => e.StudentId == s.Id),
+                AppointmentCount = scheduledClasses.Count(sc => sc.StudentId == s.Id && !sc.TrainingClassId.HasValue)
             })
             .ToList();
     }
@@ -107,6 +109,14 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
 
         var enrolledClassIds = enrollments.Where(e => e.StudentId == id).Select(e => e.TrainingClassId).ToHashSet();
 
+        var scheduledClasses = await dataStore.GetScheduledClassesAsync();
+        var scheduledAppointments = scheduledClasses
+            .Where(sc => sc.StudentId == id && !sc.TrainingClassId.HasValue)
+            .Select(sc => ToScheduledAppointmentSummary(sc, schedules))
+            .OrderBy(a => a.DayOfWeek)
+            .ThenBy(a => a.StartTime)
+            .ToList();
+
         return new StudentDetailDto
         {
             Id = student.Id,
@@ -119,7 +129,8 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             EnrolledClasses = classes
                 .Where(c => enrolledClassIds.Contains(c.Id))
                 .Select(c => ToClassSummary(c, enrollments, schedules))
-                .ToList()
+                .ToList(),
+            ScheduledAppointments = scheduledAppointments
         };
     }
 
@@ -209,6 +220,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         var students = await dataStore.GetStudentsAsync();
         var studentIds = students.Select(s => s.Id).ToHashSet();
         var enrollments = await dataStore.GetEnrollmentsAsync();
+        var scheduledClasses = await dataStore.GetScheduledClassesAsync();
 
         var orphanedEnrollments = enrollments
             .Where(e => e.TrainingClassId == id && !studentIds.Contains(e.StudentId))
@@ -236,7 +248,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             Notes = trainingClass.Notes,
             EnrolledStudents = students
                 .Where(s => enrolledStudentIds.Contains(s.Id))
-                .Select(s => ToStudentSummary(s, enrollments))
+                .Select(s => ToStudentSummary(s, enrollments, scheduledClasses))
                 .ToList()
         };
     }
@@ -251,11 +263,12 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
 
         var students = await dataStore.GetStudentsAsync();
         var enrollments = await dataStore.GetEnrollmentsAsync();
+        var scheduledClasses = await dataStore.GetScheduledClassesAsync();
         var enrolledStudentIds = enrollments.Where(e => e.TrainingClassId == classId).Select(e => e.StudentId).ToHashSet();
 
         return students
             .Where(s => enrolledStudentIds.Contains(s.Id))
-            .Select(s => ToStudentSummary(s, enrollments))
+            .Select(s => ToStudentSummary(s, enrollments, scheduledClasses))
             .ToList();
     }
 
@@ -545,6 +558,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
                 StartTime = entry.StartTime,
                 Duration = entry.Duration,
                 Location = entry.Location,
+                RecurrenceType = entry.RecurrenceType,
                 EnrolledStudents = []
             };
         }
@@ -567,6 +581,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             StartTime = entry.StartTime,
             Duration = entry.Duration,
             Location = entry.Location,
+            RecurrenceType = entry.RecurrenceType,
             EnrolledStudents = students
                 .Where(s => enrolledStudentIds.Contains(s.Id))
                 .Select(s => ToStudentSummary(s, enrollments))
@@ -689,12 +704,26 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         EnrollmentCount = enrollments.Count(e => e.TrainingClassId == trainingClass.Id)
     };
 
-    private static StudentSummaryDto ToStudentSummary(Student student, List<Enrollment> enrollments) => new()
+    private static ScheduledAppointmentSummaryDto ToScheduledAppointmentSummary(ScheduledClass entry, List<Schedule> schedules) => new()
+    {
+        Id = entry.Id,
+        ScheduleId = entry.ScheduleId,
+        ScheduleName = schedules.FirstOrDefault(s => s.Id == entry.ScheduleId)?.Name ?? "",
+        Title = entry.Title,
+        DayOfWeek = entry.DayOfWeek,
+        StartTime = entry.StartTime,
+        Duration = entry.Duration,
+        Location = entry.Location,
+        RecurrenceType = entry.RecurrenceType
+    };
+
+    private static StudentSummaryDto ToStudentSummary(Student student, List<Enrollment> enrollments, List<ScheduledClass>? scheduledClasses = null) => new()
     {
         Id = student.Id,
         FirstName = student.FirstName,
         LastName = student.LastName,
-        EnrolledClassCount = enrollments.Count(e => e.StudentId == student.Id)
+        EnrolledClassCount = enrollments.Count(e => e.StudentId == student.Id),
+        AppointmentCount = scheduledClasses?.Count(sc => sc.StudentId == student.Id && !sc.TrainingClassId.HasValue) ?? 0
     };
 
     private static ScheduledClassEntryDto ToEntryDto(ScheduledClass entry, List<TrainingClass> classes, List<Student>? students = null, List<Enrollment>? enrollments = null) => new()
@@ -715,7 +744,8 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         DayOfWeek = entry.DayOfWeek,
         StartTime = entry.StartTime,
         Duration = entry.Duration,
-        Location = entry.Location
+        Location = entry.Location,
+        RecurrenceType = entry.RecurrenceType
     };
 
     private static string FormatStudentName(Student? student) =>
@@ -927,7 +957,12 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             entry.StartTime,
             entry.Duration,
             entry.DayOfWeek,
-            schedule.EndDate);
+            schedule.EndDate,
+            entry.ScheduleId,
+            entry.Id,
+            entry.TrainingClassId,
+            entry.StudentId,
+            entry.RecurrenceType);
     }
 
     /// <summary>

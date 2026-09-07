@@ -37,6 +37,11 @@ export function StudentTile({ student, onSelect, isSelected }: StudentTileProps)
       <span className="tile-subtitle">
         {student.enrolledClassCount} enrolled {student.enrolledClassCount === 1 ? 'class' : 'classes'}
       </span>
+      {student.appointmentCount > 0 && (
+        <span className="tile-subtitle">
+          {student.appointmentCount} {student.appointmentCount === 1 ? 'appointment' : 'appointments'}
+        </span>
+      )}
     </button>
   );
 }

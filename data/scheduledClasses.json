@@ -1,62 +1,26 @@
 [
   {
-    "Id": "edb50a15-b4b7-46ec-9517-ad48ba11ddbb",
+    "Id": "bfe0f219-816d-479a-a9e0-938e8d81ecdc",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "TrainingClassId": null,
+    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
+    "DayOfWeek": 6,
+    "StartTime": "09:00:00",
+    "Duration": "00:30:00",
+    "Location": null,
+    "RecurrenceType": 0,
+    "Title": null
+  },
+  {
+    "Id": "48c3d4b4-69e5-488f-8a6e-622f787f2af6",
     "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
     "TrainingClassId": "6a722cc7-4aee-4b96-9ea7-a947ecf68776",
     "StudentId": null,
-    "DayOfWeek": 4,
-    "StartTime": "08:30:00",
-    "Duration": "01:00:00",
-    "Location": null
-  },
-  {
-    "Id": "fc80eff2-c138-4646-9e89-72b880fca38f",
-    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
-    "TrainingClassId": "e76f9853-7abc-4f66-ba24-f8c144bd4e79",
-    "StudentId": null,
     "DayOfWeek": 2,
-    "StartTime": "09:00:00",
-    "Duration": "01:00:00",
-    "Location": null
-  },
-  {
-    "Id": "1e10b0cd-4dab-4116-9ba2-799df0c96aec",
-    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
-    "TrainingClassId": "175ddd00-507e-409e-a1d6-b78fc61f0b73",
-    "StudentId": null,
-    "DayOfWeek": 3,
     "StartTime": "10:00:00",
     "Duration": "01:00:00",
-    "Location": null
-  },
-  {
-    "Id": "192e5f51-a1ee-429a-9841-7d8978e555ec",
-    "ScheduleId": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
-    "TrainingClassId": "721b94d5-e982-4365-830e-d237caeff5b0",
-    "StudentId": null,
-    "DayOfWeek": 1,
-    "StartTime": "08:00:00",
-    "Duration": "01:00:00",
-    "Location": null
-  },
-  {
-    "Id": "4f505221-36bc-44f8-8542-7c3d75b8445b",
-    "ScheduleId": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
-    "TrainingClassId": "afcd05af-5396-4442-b5d2-cb32e58683a0",
-    "StudentId": null,
-    "DayOfWeek": 2,
-    "StartTime": "09:00:00",
-    "Duration": "01:00:00",
-    "Location": null
-  },
-  {
-    "Id": "c2e68430-aa80-4b63-995a-39d6953025fd",
-    "ScheduleId": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
-    "TrainingClassId": "0adcbe9a-eff3-4368-a273-93af229c0d43",
-    "StudentId": null,
-    "DayOfWeek": 3,
-    "StartTime": "10:00:00",
-    "Duration": "01:00:00",
-    "Location": null
+    "Location": null,
+    "RecurrenceType": 0,
+    "Title": null
   }
 ]

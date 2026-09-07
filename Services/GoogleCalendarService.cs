@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using ClassPlanner.Models;
 using Google;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
@@ -183,7 +184,30 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
                 TimeZone = _options.TimeZone,
             },
             Recurrence = [recurrence],
+            ExtendedProperties = BuildExtendedProperties(input),
         };
+    }
+
+    private static Event.ExtendedPropertiesData BuildExtendedProperties(GoogleCalendarEventInput input)
+    {
+        var properties = new Dictionary<string, string>
+        {
+            ["classPlannerScheduleId"] = input.ScheduleId.ToString(),
+            ["classPlannerScheduledClassId"] = input.ScheduledClassId.ToString(),
+            ["classPlannerRecurrenceType"] = input.RecurrenceType.ToString(),
+        };
+
+        if (input.TrainingClassId is { } trainingClassId)
+        {
+            properties["classPlannerTrainingClassId"] = trainingClassId.ToString();
+        }
+
+        if (input.StudentId is { } studentId)
+        {
+            properties["classPlannerStudentId"] = studentId.ToString();
+        }
+
+        return new Event.ExtendedPropertiesData { Private__ = properties };
     }
 }
 
@@ -196,7 +220,12 @@ public record GoogleCalendarEventInput(
     TimeSpan StartTime,
     TimeSpan Duration,
     DayOfWeek DayOfWeek,
-    DateOnly? RecurrenceEndDate);
+    DateOnly? RecurrenceEndDate,
+    Guid ScheduleId,
+    Guid ScheduledClassId,
+    Guid? TrainingClassId,
+    Guid? StudentId,
+    RecurrenceType RecurrenceType);
 
 /// <summary>Result of validating a Google OAuth access token against Google's tokeninfo endpoint.</summary>
 public record GoogleTokenValidationResult(bool IsValid, string? Email);

@@ -1,11 +1,14 @@
 namespace ClassPlanner.Services.Dtos;
 
+using ClassPlanner.Models;
+
 public class StudentSummaryDto
 {
     public Guid Id { get; set; }
     public string FirstName { get; set; } = "";
     public string LastName { get; set; } = "";
     public int EnrolledClassCount { get; set; }
+    public int AppointmentCount { get; set; }
 }
 
 public class StudentDetailDto
@@ -18,6 +21,21 @@ public class StudentDetailDto
     public string? EmergencyContact { get; set; }
     public string? Notes { get; set; }
     public List<ClassSummaryDto> EnrolledClasses { get; set; } = [];
+    public List<ScheduledAppointmentSummaryDto> ScheduledAppointments { get; set; } = [];
+}
+
+/// <summary>A direct student appointment (no associated class) placed on a schedule.</summary>
+public class ScheduledAppointmentSummaryDto
+{
+    public Guid Id { get; set; }
+    public Guid ScheduleId { get; set; }
+    public string ScheduleName { get; set; } = "";
+    public string? Title { get; set; }
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan Duration { get; set; }
+    public string? Location { get; set; }
+    public RecurrenceType RecurrenceType { get; set; }
 }
 
 public class ClassSummaryDto
@@ -63,6 +81,7 @@ public class ScheduledClassEntryDto
     public TimeSpan StartTime { get; set; }
     public TimeSpan Duration { get; set; }
     public string? Location { get; set; }
+    public RecurrenceType RecurrenceType { get; set; }
 }
 
 public class ScheduleDetailDto
@@ -88,6 +107,7 @@ public class ScheduledClassDetailDto
     public TimeSpan StartTime { get; set; }
     public TimeSpan Duration { get; set; }
     public string? Location { get; set; }
+    public RecurrenceType RecurrenceType { get; set; }
     public List<StudentSummaryDto> EnrolledStudents { get; set; } = [];
 }
 

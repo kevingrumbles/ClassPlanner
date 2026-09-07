@@ -3,6 +3,7 @@ export interface StudentSummary {
   firstName: string;
   lastName: string;
   enrolledClassCount: number;
+  appointmentCount: number;
 }
 
 export interface ClassSummary {
@@ -22,6 +23,19 @@ export interface StudentDetail {
   emergencyContact?: string | null;
   notes?: string | null;
   enrolledClasses: ClassSummary[];
+  scheduledAppointments: ScheduledAppointmentSummary[];
+}
+
+export interface ScheduledAppointmentSummary {
+  id: string;
+  scheduleId: string;
+  scheduleName: string;
+  title?: string | null;
+  dayOfWeek: DayOfWeekIndex;
+  startTime: string;
+  duration: string;
+  location?: string | null;
+  recurrenceType: RecurrenceType;
 }
 
 export interface ClassDetail {
@@ -40,6 +54,12 @@ export interface ClassDetail {
  * (0 = Sunday ... 6 = Saturday), which also matches JavaScript's Date.getDay().
  */
 export type DayOfWeekIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * Matches .NET's ClassPlanner.Models.RecurrenceType enum. Currently only weekly repetition is
+ * supported, but more recurrence types are expected to be added in the future.
+ */
+export type RecurrenceType = "Weekly";
 
 export interface ScheduleSummary {
   id: string;
@@ -61,6 +81,7 @@ export interface ScheduledClassEntry {
   startTime: string; // TimeSpan serialized as "hh:mm:ss"
   duration: string;
   location?: string | null;
+  recurrenceType: RecurrenceType;
 }
 
 export interface ScheduleDetail {

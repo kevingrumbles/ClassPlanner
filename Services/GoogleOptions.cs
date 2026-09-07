@@ -12,7 +12,7 @@ public class GoogleOptions
     public string ClientId { get; set; } = "";
 
     /// <summary>OAuth scope requested by the browser popup flow.</summary>
-    public string Scope { get; set; } = "https://www.googleapis.com/auth/calendar.app.created";
+    public string Scope { get; set; } = "https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/userinfo.email";
 
     /// <summary>Name of the dedicated secondary Google Calendar used for ClassPlanner events.</summary>
     public string CalendarName { get; set; } = "Class Planner";
