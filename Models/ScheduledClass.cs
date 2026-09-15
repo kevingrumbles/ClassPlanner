@@ -23,6 +23,13 @@ public class ScheduledClass
     /// <summary>How this occurrence repeats. Currently always weekly; more types may be added in the future.</summary>
     public RecurrenceType RecurrenceType { get; set; } = RecurrenceType.Weekly;
 
+    /// <summary>
+    /// The specific calendar date this occurrence falls on. Only meaningful when
+    /// <see cref="RecurrenceType"/> is <see cref="Models.RecurrenceType.Once"/>; ignored for
+    /// recurring entries, which repeat indefinitely on <see cref="DayOfWeek"/>.
+    /// </summary>
+    public DateOnly? EventDate { get; set; }
+
     /// <summary>Optional display title, used for direct appointments imported from external sources.</summary>
     public string? Title { get; set; }
 }

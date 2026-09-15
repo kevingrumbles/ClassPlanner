@@ -213,6 +213,7 @@ body {
   cursor: grab;
   font: inherit;
   width: 100%;
+  transition: padding 0.15s ease, gap 0.15s ease;
 }
 
 .tile:hover {
@@ -550,6 +551,52 @@ body {
   background: #fef2f2;
 }
 
+.calendar-week-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.calendar-week-nav button {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+}
+
+.calendar-week-nav button:hover {
+  background: #eef2ff;
+}
+
+.calendar-week-nav-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.calendar-week-nav-date-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
+  margin-left: auto;
+}
+
+.calendar-week-nav-date-field input[type='date'] {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
 .calendar-grid {
   display: grid;
 }
@@ -567,6 +614,14 @@ body {
   border-left: 1px solid #e5e7eb;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
+}
+
+.calendar-day-header-date {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
 }
 
 .calendar-hour-label {
@@ -671,6 +726,12 @@ body {
 .calendar-entry.calendar-entry-student {
   background: #dcfce7;
   border-color: #86efac;
+}
+
+.calendar-entry.calendar-entry-pending {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  border-style: dashed;
 }
 
 

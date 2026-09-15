@@ -1,26 +1,15 @@
 [
   {
-    "Id": "bfe0f219-816d-479a-a9e0-938e8d81ecdc",
+    "Id": "32247619-b742-4ef9-9da5-bbd8c4176337",
     "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
     "TrainingClassId": null,
-    "StudentId": "ebbb4f95-8d99-4619-a29b-8873ff0e2d6c",
-    "DayOfWeek": 6,
-    "StartTime": "09:00:00",
+    "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
+    "DayOfWeek": 2,
+    "StartTime": "08:15:00",
     "Duration": "00:30:00",
     "Location": null,
     "RecurrenceType": 0,
-    "Title": null
-  },
-  {
-    "Id": "48c3d4b4-69e5-488f-8a6e-622f787f2af6",
-    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
-    "TrainingClassId": "6a722cc7-4aee-4b96-9ea7-a947ecf68776",
-    "StudentId": null,
-    "DayOfWeek": 2,
-    "StartTime": "10:00:00",
-    "Duration": "01:00:00",
-    "Location": null,
-    "RecurrenceType": 0,
+    "EventDate": null,
     "Title": null
   }
 ]

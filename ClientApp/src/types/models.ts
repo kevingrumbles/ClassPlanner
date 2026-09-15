@@ -56,10 +56,10 @@ export interface ClassDetail {
 export type DayOfWeekIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 /**
- * Matches .NET's ClassPlanner.Models.RecurrenceType enum. Currently only weekly repetition is
- * supported, but more recurrence types are expected to be added in the future.
+ * Matches .NET's ClassPlanner.Models.RecurrenceType enum. More recurrence types are expected
+ * to be added in the future.
  */
-export type RecurrenceType = "Weekly";
+export type RecurrenceType = "Weekly" | "Once";
 
 export interface ScheduleSummary {
   id: string;
@@ -82,6 +82,13 @@ export interface ScheduledClassEntry {
   duration: string;
   location?: string | null;
   recurrenceType: RecurrenceType;
+  /** The specific calendar date this occurrence falls on. Only set when recurrenceType is "Once". */
+  eventDate?: string | null; // DateOnly serialized as "yyyy-MM-dd"
+  /**
+   * True for Calendar View appointments that exist only in local browser state and have not
+   * yet been pushed to Google Calendar. Used to render a distinct "not uploaded" style.
+   */
+  isPending?: boolean;
 }
 
 export interface ScheduleDetail {
@@ -116,6 +123,17 @@ export interface GoogleCalendarSyncResult {
   created: number;
   updated: number;
   deleted: number;
+}
+
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  description?: string | null;
+  location?: string | null;
+  start: string;
+  end: string;
+  /** The ClassPlanner student this event represents, when created for a student appointment. */
+  studentId?: string | null;
 }
 
 export type SelectedObject =

@@ -2,7 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { useEffect, useState } from 'react';
 import type { ScheduledClassEntry } from '../types/models';
 import { CalendarSlot } from './CalendarSlot';
-import { DAY_NAMES, formatDuration, formatHourLabel, parseDurationMinutes } from './format';
+import { addDays, DAY_NAMES, formatDateLabel, formatDuration, formatHourLabel, parseDurationMinutes, startOfWeek, toIsoDate } from './format';
 
 interface CalendarProps {
   entries: ScheduledClassEntry[];
@@ -15,6 +15,9 @@ interface CalendarProps {
   onDeleteSchedule?: () => void;
   onSaveScheduleDates?: (startDate: string | null, endDate: string | null) => void;
   onRenameSchedule?: (name: string) => void;
+  /** Anchor date for the displayed week, and a setter to navigate/select which week is shown. */
+  viewDate?: string;
+  onViewDateChange?: (date: string) => void;
 }
 
 interface DraggableEntryProps {
@@ -45,7 +48,8 @@ function DraggableEntry({ entry, onSelectEntry }: DraggableEntryProps) {
       type="button"
       ref={setNodeRef}
       style={{ ...style, top: `${(minuteWithinHour / 60) * 100}%`, height: `${heightPercent}%` }}
-      className={`tile calendar-entry${isDragging ? ' is-dragging' : ''}${entry.studentId ? ' calendar-entry-student' : ''}${isCompact ? ' calendar-entry-compact' : ''}`}
+      className={`tile calendar-entry${isDragging ? ' is-dragging' : ''}${entry.studentId ? ' calendar-entry-student' : ''}${isCompact ? ' calendar-entry-compact' : ''}${entry.isPending ? ' calendar-entry-pending' : ''}`}
+      title={entry.isPending ? 'Not yet uploaded to Google Calendar' : undefined}
       onClick={() => onSelectEntry(entry.id)}
       {...listeners}
       {...attributes}
@@ -75,6 +79,8 @@ export function Calendar({
   onDeleteSchedule,
   onSaveScheduleDates,
   onRenameSchedule,
+  viewDate,
+  onViewDateChange,
 }: CalendarProps) {
   // Display order Monday(1) .. Sunday(0), matching typical weekly schedule conventions.
   const orderedDays = [1, 2, 3, 4, 5, 6, 0] as const;
@@ -83,6 +89,10 @@ export function Calendar({
   const [draftEndDate, setDraftEndDate] = useState(endDate ?? '');
   const [isEditingName, setIsEditingName] = useState(false);
   const [draftName, setDraftName] = useState(scheduleName ?? '');
+
+  const showDateNav = Boolean(onViewDateChange);
+  const weekStart = showDateNav ? startOfWeek(viewDate ?? toIsoDate(new Date())) : null;
+  const weekDates = weekStart ? orderedDays.map((_, index) => addDays(weekStart, index)) : null;
 
   // startDate/endDate arrive asynchronously after the schedule id is already active (the
   // detail fetch resolves later), so the initial useState seed above can miss them. Re-sync
@@ -123,9 +133,25 @@ export function Calendar({
     setDraftName(scheduleName ?? '');
   }
 
+  function goToPreviousWeek() {
+    if (weekStart && onViewDateChange) {
+      onViewDateChange(addDays(weekStart, -7));
+    }
+  }
+
+  function goToNextWeek() {
+    if (weekStart && onViewDateChange) {
+      onViewDateChange(addDays(weekStart, 7));
+    }
+  }
+
+  function goToToday() {
+    onViewDateChange?.(toIsoDate(new Date()));
+  }
+
   return (
     <div className="calendar">
-      {(scheduleName || onDeleteSchedule) && (
+      {(scheduleName || onDeleteSchedule || onSaveScheduleDates) && (
         <div className="calendar-toolbar">
           {scheduleName && !isEditingName && (
             <span
@@ -184,21 +210,46 @@ export function Calendar({
           )}
         </div>
       )}
+      {showDateNav && weekStart && (
+        <div className="calendar-week-nav">
+          <button type="button" onClick={goToPreviousWeek}>
+            &larr; Previous Week
+          </button>
+          <span className="calendar-week-nav-label">
+            {formatDateLabel(weekStart)} &ndash; {formatDateLabel(addDays(weekStart, 6))}
+          </span>
+          <button type="button" onClick={goToToday}>
+            Today
+          </button>
+          <button type="button" onClick={goToNextWeek}>
+            Next Week &rarr;
+          </button>
+          <label className="calendar-week-nav-date-field">
+            Go to date
+            <input
+              type="date"
+              value={viewDate ?? ''}
+              onChange={(e) => e.target.value && onViewDateChange?.(e.target.value)}
+            />
+          </label>
+        </div>
+      )}
       <div className="calendar-grid" style={{ gridTemplateColumns: `auto repeat(${orderedDays.length}, 1fr)` }}>
         <div className="calendar-corner" />
-        {orderedDays.map((day) => (
+        {orderedDays.map((day, index) => (
           <div key={day} className="calendar-day-header">
             {DAY_NAMES[day]}
+            {weekDates && <span className="calendar-day-header-date">{formatDateLabel(weekDates[index])}</span>}
           </div>
         ))}
 
         {hours.map((hour) => (
           <div key={hour} className="calendar-row" style={{ display: 'contents' }}>
             <div className="calendar-hour-label">{formatHourLabel(hour)}</div>
-            {orderedDays.map((day) => (
+            {orderedDays.map((day, index) => (
               <div key={`${day}-${hour}`} className="calendar-cell">
                 {QUARTER_MINUTES.map((minute) => (
-                  <CalendarSlot key={minute} dayOfWeek={day} hour={hour} minute={minute} />
+                  <CalendarSlot key={minute} dayOfWeek={day} hour={hour} minute={minute} date={weekDates?.[index]} />
                 ))}
                 {entriesFor(day, hour).map((entry) => (
                   <DraggableEntry key={entry.id} entry={entry} onSelectEntry={onSelectEntry} />

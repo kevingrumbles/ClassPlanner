@@ -134,7 +134,7 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
         return inserted.Id;
     }
 
-    /// <summary>Deletes an event, tolerating the case where it was already removed manually.</summary>
+    /// <summary>DeletesDeletes an event, tolerating the case where it was already removed manually.</summary>
     public async Task DeleteEventAsync(string accessToken, string calendarId, string eventId)
     {
         var calendarService = CreateCalendarService(accessToken);
@@ -148,12 +148,147 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
         }
     }
 
+    /// <summary>
+    /// Lists events on the given calendar starting from <paramref name="fromUtc"/> (inclusive),
+    /// expanding recurring events into individual occurrences (<c>singleEvents=true</c>) so that
+    /// Google-only recurring events can be reconciled per-occurrence. Extended properties are
+    /// parsed into ClassPlanner identifiers where present.
+    /// </summary>
+    public async Task<List<GoogleCalendarEventSnapshot>> ListEventsAsync(string accessToken, string calendarId, DateTime fromUtc)
+    {
+        var calendarService = CreateCalendarService(accessToken);
+        var results = new List<GoogleCalendarEventSnapshot>();
+        string? pageToken = null;
+
+        do
+        {
+            var request = calendarService.Events.List(calendarId);
+            request.TimeMinDateTimeOffset = fromUtc;
+            request.SingleEvents = true;
+            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+            request.PageToken = pageToken;
+            request.MaxResults = 250;
+
+            var response = await request.ExecuteAsync();
+            foreach (var googleEvent in response.Items ?? [])
+            {
+                var snapshot = ParseEvent(googleEvent);
+                if (snapshot is not null)
+                {
+                    results.Add(snapshot);
+                }
+            }
+
+            pageToken = response.NextPageToken;
+        } while (!string.IsNullOrEmpty(pageToken));
+
+        return results;
+    }
+
     /// <summary>True when the exception indicates the calendar itself no longer exists.</summary>
     public static bool IsCalendarNotFound(Exception ex) =>
         ex is GoogleApiException { HttpStatusCode: HttpStatusCode.NotFound };
 
+    private GoogleCalendarEventSnapshot? ParseEvent(Event googleEvent)
+    {
+        if (string.IsNullOrEmpty(googleEvent.Id) || googleEvent.Status == "cancelled")
+        {
+            return null;
+        }
+
+        var start = ParseEventDateTime(googleEvent.Start);
+        var end = ParseEventDateTime(googleEvent.End);
+        if (start is null || end is null)
+        {
+            return null;
+        }
+
+        var properties = googleEvent.ExtendedProperties?.Private__;
+        Guid? scheduleId = TryParseGuid(properties, "classPlannerScheduleId");
+        Guid? scheduledClassId = TryParseGuid(properties, "classPlannerScheduledClassId");
+        Guid? trainingClassId = TryParseGuid(properties, "classPlannerTrainingClassId");
+        Guid? studentId = TryParseGuid(properties, "classPlannerStudentId");
+        RecurrenceType? recurrenceType = null;
+        if (properties is not null
+            && properties.TryGetValue("classPlannerRecurrenceType", out var recurrenceTypeText)
+            && Enum.TryParse<RecurrenceType>(recurrenceTypeText, out var parsedRecurrenceType))
+        {
+            recurrenceType = parsedRecurrenceType;
+        }
+
+        return new GoogleCalendarEventSnapshot(
+            googleEvent.Id,
+            googleEvent.Summary ?? "",
+            googleEvent.Description,
+            googleEvent.Location,
+            start.Value,
+            end.Value,
+            scheduleId,
+            scheduledClassId,
+            trainingClassId,
+            studentId,
+            recurrenceType);
+    }
+
+    private static DateTime? ParseEventDateTime(EventDateTime? eventDateTime)
+    {
+        if (eventDateTime is null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrEmpty(eventDateTime.DateTimeRaw) && DateTime.TryParse(eventDateTime.DateTimeRaw, out var dateTime))
+        {
+            return DateTime.SpecifyKind(dateTime, DateTimeKind.Unspecified);
+        }
+
+        if (!string.IsNullOrEmpty(eventDateTime.Date) && DateTime.TryParse(eventDateTime.Date, out var dateOnly))
+        {
+            return dateOnly;
+        }
+
+        return null;
+    }
+
+    private static Guid? TryParseGuid(IDictionary<string, string>? properties, string key)
+    {
+        if (properties is not null && properties.TryGetValue(key, out var value) && Guid.TryParse(value, out var guid))
+        {
+            return guid;
+        }
+
+        return null;
+    }
+
     private Event BuildEvent(GoogleCalendarEventInput input)
     {
+        if (input.RecurrenceType == RecurrenceType.Once)
+        {
+            var onceDate = input.EventDate ?? input.FirstOccurrenceDate;
+            var onceStart = onceDate.ToDateTime(TimeOnly.FromTimeSpan(input.StartTime));
+            var onceEnd = onceStart + input.Duration;
+
+            return new Event
+            {
+                Summary = input.Summary,
+                Description = input.Description,
+                Location = string.IsNullOrWhiteSpace(input.Location) ? null : input.Location,
+                Start = new EventDateTime
+                {
+                    DateTimeDateTimeOffset = null,
+                    DateTimeRaw = onceStart.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    TimeZone = _options.TimeZone,
+                },
+                End = new EventDateTime
+                {
+                    DateTimeDateTimeOffset = null,
+                    DateTimeRaw = onceEnd.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    TimeZone = _options.TimeZone,
+                },
+                ExtendedProperties = BuildExtendedProperties(input),
+            };
+        }
+
         var start = input.FirstOccurrenceDate.ToDateTime(TimeOnly.FromTimeSpan(input.StartTime));
         var end = start + input.Duration;
 
@@ -211,7 +346,7 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
     }
 }
 
-/// <summary>Plain input describing the recurring event to create/update. Not a domain model.</summary>
+/// <summary>Plain input describing the event to create/update. Not a domain model.</summary>
 public record GoogleCalendarEventInput(
     string Summary,
     string? Description,
@@ -225,7 +360,30 @@ public record GoogleCalendarEventInput(
     Guid ScheduledClassId,
     Guid? TrainingClassId,
     Guid? StudentId,
-    RecurrenceType RecurrenceType);
+    RecurrenceType RecurrenceType,
+    /// <summary>Specific calendar date used when <see cref="RecurrenceType"/> is <see cref="Models.RecurrenceType.Once"/>.</summary>
+    DateOnly? EventDate = null);
+
+/// <summary>
+/// Plain snapshot of a Google Calendar event as read back from the API, with ClassPlanner
+/// identifiers parsed out of extended properties where present. Not a domain model.
+/// </summary>
+public record GoogleCalendarEventSnapshot(
+    string EventId,
+    string Summary,
+    string? Description,
+    string? Location,
+    DateTime Start,
+    DateTime End,
+    Guid? ScheduleId,
+    Guid? ScheduledClassId,
+    Guid? TrainingClassId,
+    Guid? StudentId,
+    RecurrenceType? RecurrenceType)
+{
+    /// <summary>True when this event carries ClassPlanner identifiers (was created/imported by ClassPlanner).</summary>
+    public bool IsClassPlannerOwned => ScheduledClassId.HasValue;
+}
 
 /// <summary>Result of validating a Google OAuth access token against Google's tokeninfo endpoint.</summary>
 public record GoogleTokenValidationResult(bool IsValid, string? Email);

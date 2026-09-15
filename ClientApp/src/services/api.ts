@@ -3,6 +3,7 @@ import type {
   ClassSummary,
   DayOfWeekIndex,
   GoogleCalendarConfig,
+  GoogleCalendarEvent,
   GoogleCalendarStatus,
   GoogleCalendarSyncResult,
   ScheduleDetail,
@@ -231,6 +232,24 @@ export function updateGoogleCalendar(scheduleId: string, accessToken: string | n
   return request(`/api/schedules/${scheduleId}/google-calendar`, {
     method: 'POST',
     headers: authHeader(accessToken),
+  });
+}
+
+export function getGoogleEvents(accessToken: string | null): Promise<GoogleCalendarEvent[]> {
+  return request('/api/google/events', { headers: authHeader(accessToken) });
+}
+
+export function createGoogleAppointment(
+  studentId: string,
+  eventDate: string,
+  startTime: string,
+  duration: string,
+  accessToken: string | null
+): Promise<GoogleCalendarEvent> {
+  return request('/api/google/events', {
+    method: 'POST',
+    headers: authHeader(accessToken),
+    body: JSON.stringify({ studentId, eventDate, startTime, duration }),
   });
 }
 

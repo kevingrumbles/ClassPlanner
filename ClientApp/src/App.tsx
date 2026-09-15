@@ -1,6 +1,6 @@
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { Calendar } from './components/Calendar';
 import { ClassTile } from './components/ClassTile';
@@ -10,25 +10,46 @@ import { ScheduleTile } from './components/ScheduleTile';
 import { StudentTile } from './components/StudentTile';
 import * as api from './services/api';
 import { ApiError } from './services/api';
+import { addDays, startOfWeek, toIsoDate } from './components/format';
 import type {
   ClassDetail,
   ClassSummary,
   DayOfWeekIndex,
+  GoogleCalendarEvent,
   GoogleCalendarStatus,
   ScheduleDetail,
   ScheduleSummary,
   ScheduledClassDetail,
+  ScheduledClassEntry,
   SelectedObject,
   StudentDetail,
   StudentSummary,
 } from './types/models';
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+const DEFAULT_APPOINTMENT_DURATION = '00:30:00';
+
+/**
+ * A student appointment created via Calendar View drag-and-drop that has not yet been pushed
+ * to Google Calendar. It is not associated with any ClassPlanner schedule; it exists only in
+ * local browser state until synced.
+ */
+interface PendingAppointment {
+  id: string;
+  studentId: string;
+  studentName: string;
+  eventDate: string;
+  startTime: string;
+  duration: string;
+}
+
 
 function App() {
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [classes, setClasses] = useState<ClassSummary[]>([]);
   const [schedules, setSchedules] = useState<ScheduleSummary[]>([]);
+  const [viewMode, setViewMode] = useState<'schedule' | 'calendar'>('schedule');
+  const [calendarViewDate, setCalendarViewDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
   const [activeScheduleDetail, setActiveScheduleDetail] = useState<ScheduleDetail>();
   const [selected, setSelected] = useState<SelectedObject>(null);
@@ -42,6 +63,9 @@ function App() {
   const [isUpdatingGoogleCalendar, setIsUpdatingGoogleCalendar] = useState(false);
   const [googleSyncMessage, setGoogleSyncMessage] = useState<string | null>(null);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [pendingAppointments, setPendingAppointments] = useState<PendingAppointment[]>([]);
+  const [isSyncingPendingAppointments, setIsSyncingPendingAppointments] = useState(false);
   const googleTokenClientRef = useRef<GoogleTokenClient | null>(null);
 
   const sensors = useSensors(
@@ -126,6 +150,29 @@ function App() {
       check();
     });
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGoogleEvents = async () => {
+      if (!googleAccessToken) {
+        return;
+      }
+      try {
+        const events = await api.getGoogleEvents(googleAccessToken);
+        if (!cancelled) {
+          setGoogleEvents(events);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : 'Unable to load Google Calendar events.');
+        }
+      }
+    };
+    loadGoogleEvents();
+    return () => {
+      cancelled = true;
+    };
+  }, [googleAccessToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -270,8 +317,47 @@ function App() {
       await api.scheduleStudent(activeScheduleId, studentId, dayOfWeek, startTime);
       setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
       setSchedules(await api.getSchedules());
+      setStudents(await api.getStudents());
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to schedule student.');
+    }
+  }
+
+  function handleAddPendingAppointment(studentId: string, eventDate: string, startTime: string) {
+    const student = students.find((s) => s.id === studentId);
+    if (!student) return;
+    setPendingAppointments((prev) => [
+      ...prev,
+      {
+        id: `pending:${crypto.randomUUID()}`,
+        studentId,
+        studentName: `${student.firstName} ${student.lastName}`,
+        eventDate,
+        startTime,
+        duration: DEFAULT_APPOINTMENT_DURATION,
+      },
+    ]);
+  }
+
+  async function handleSyncPendingAppointments() {
+    if (pendingAppointments.length === 0 || isSyncingPendingAppointments) return;
+    setIsSyncingPendingAppointments(true);
+    try {
+      for (const appointment of pendingAppointments) {
+        const created = await api.createGoogleAppointment(
+          appointment.studentId,
+          appointment.eventDate,
+          appointment.startTime,
+          appointment.duration,
+          googleAccessToken
+        );
+        setGoogleEvents((prev) => [...prev, created]);
+        setPendingAppointments((prev) => prev.filter((p) => p.id !== appointment.id));
+      }
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Unable to sync appointments to Google Calendar.');
+    } finally {
+      setIsSyncingPendingAppointments(false);
     }
   }
 
@@ -316,6 +402,7 @@ function App() {
     try {
       await api.removeScheduledClass(activeScheduleId, entryId);
       setSchedules(await api.getSchedules());
+      setStudents(await api.getStudents());
     } catch (err) {
       setActiveScheduleDetail(previousDetail);
       showError(err instanceof ApiError ? err.message : 'Unable to remove scheduled class.');
@@ -518,6 +605,108 @@ function App() {
     }
   }
 
+  // Converts the fetched Google Calendar events into pseudo schedule entries so they can be
+  // rendered directly in the Calendar grid for the week currently shown in Calendar View.
+  const googleCalendarViewEntries = useMemo<ScheduledClassEntry[]>(() => {
+    if (viewMode !== 'calendar') {
+      return [];
+    }
+    const weekStart = startOfWeek(calendarViewDate);
+    const weekEnd = addDays(weekStart, 7);
+
+    return googleEvents
+      .filter((event) => {
+        const eventDate = toIsoDate(new Date(event.start));
+        return eventDate >= weekStart && eventDate < weekEnd;
+      })
+      .map((event) => {
+        const start = new Date(event.start);
+        const end = new Date(event.end);
+        const durationMinutes = Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0);
+        const durationHours = Math.floor(durationMinutes / 60);
+        const durationRemainder = durationMinutes % 60;
+
+        return {
+          id: `google:${event.id}`,
+          scheduleId: '',
+          trainingClassId: null,
+          trainingClassName: event.summary,
+          enrollmentCount: null,
+          studentId: null,
+          studentName: null,
+          dayOfWeek: start.getDay() as DayOfWeekIndex,
+          startTime: `${start.getHours().toString().padStart(2, '0')}:${start.getMinutes().toString().padStart(2, '0')}:00`,
+          duration: `${durationHours.toString().padStart(2, '0')}:${durationRemainder.toString().padStart(2, '0')}:00`,
+          location: event.location,
+          recurrenceType: 'Once',
+        } satisfies ScheduledClassEntry;
+      });
+  }, [viewMode, calendarViewDate, googleEvents]);
+
+  // One-time appointments created via Calendar View drag-and-drop that have not yet been synced
+  // to Google Calendar, filtered to the week currently shown. These are local-only and are not
+  // associated with any ClassPlanner schedule.
+  const localCalendarViewEntries = useMemo<ScheduledClassEntry[]>(() => {
+    if (viewMode !== 'calendar') {
+      return [];
+    }
+
+    const weekStart = startOfWeek(calendarViewDate);
+    const weekEnd = addDays(weekStart, 7);
+
+    return pendingAppointments
+      .filter((appointment) => appointment.eventDate >= weekStart && appointment.eventDate < weekEnd)
+      .map((appointment) => {
+        const [hours, minutes] = appointment.startTime.split(':');
+        return {
+          id: appointment.id,
+          scheduleId: '',
+          trainingClassId: null,
+          trainingClassName: null,
+          enrollmentCount: null,
+          studentId: appointment.studentId,
+          studentName: appointment.studentName,
+          dayOfWeek: new Date(`${appointment.eventDate}T00:00:00`).getDay() as DayOfWeekIndex,
+          startTime: `${hours}:${minutes}:00`,
+          duration: appointment.duration,
+          location: null,
+          recurrenceType: 'Once',
+          eventDate: appointment.eventDate,
+          isPending: true,
+        } satisfies ScheduledClassEntry;
+      });
+  }, [viewMode, calendarViewDate, pendingAppointments]);
+
+  const calendarViewEntries = useMemo<ScheduledClassEntry[]>(
+    () => [...localCalendarViewEntries, ...googleCalendarViewEntries],
+    [localCalendarViewEntries, googleCalendarViewEntries]
+  );
+
+  // Calendar View one-time appointments (pending locally, or already uploaded to Google) are not
+  // backed by any ClassPlanner ScheduledClass, so the backend's per-student appointment count
+  // does not include them. Augment the counts here so student tiles stay accurate.
+  const studentsWithAdHocCounts = useMemo<StudentSummary[]>(() => {
+    const extraCounts = new Map<string, number>();
+    for (const appointment of pendingAppointments) {
+      extraCounts.set(appointment.studentId, (extraCounts.get(appointment.studentId) ?? 0) + 1);
+    }
+    for (const event of googleEvents) {
+      if (event.studentId) {
+        extraCounts.set(event.studentId, (extraCounts.get(event.studentId) ?? 0) + 1);
+      }
+    }
+
+    if (extraCounts.size === 0) {
+      return students;
+    }
+
+    return students.map((student) =>
+      extraCounts.has(student.id)
+        ? { ...student, appointmentCount: student.appointmentCount + extraCounts.get(student.id)! }
+        : student
+    );
+  }, [students, pendingAppointments, googleEvents]);
+
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current;
     if (data?.type === 'student') {
@@ -549,11 +738,16 @@ function App() {
       const dayOfWeek = overData.dayOfWeek as DayOfWeekIndex;
       const minute = (overData.minute as number | undefined) ?? 0;
       const startTime = `${(overData.hour as number).toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+      const date = overData.date as string | undefined;
 
       if (activeData?.type === 'class') {
         handleScheduleClass(activeData.classId as string, dayOfWeek, startTime);
       } else if (activeData?.type === 'student') {
-        handleScheduleStudent(activeData.studentId as string, dayOfWeek, startTime);
+        if (date) {
+          handleAddPendingAppointment(activeData.studentId as string, date, startTime);
+        } else {
+          handleScheduleStudent(activeData.studentId as string, dayOfWeek, startTime);
+        }
       } else if (activeData?.type === 'scheduled') {
         handleMoveScheduledClass(activeData.entryId as string, dayOfWeek, startTime);
       }
@@ -566,12 +760,19 @@ function App() {
         <header className="tool-ribbon">
           <h1>Class Planner</h1>
           <div className="google-status">
+            <button
+              type="button"
+              className="view-mode-toggle"
+              onClick={() => setViewMode((prev) => (prev === 'schedule' ? 'calendar' : 'schedule'))}
+            >
+              {viewMode === 'schedule' ? 'Calendar View' : 'Schedule View'}
+            </button>
             {googleStatus.connected && (
               <span className="google-status-connected">
                 Google Calendar Connected{googleStatus.email ? ` (${googleStatus.email})` : ''}
               </span>
             )}
-            {activeScheduleId && (
+            {viewMode === 'schedule' && activeScheduleId && (
               <button
                 type="button"
                 className="calendar-update-google-calendar"
@@ -580,6 +781,19 @@ function App() {
                 title={googleStatus.connected ? undefined : 'Connect Google Calendar to enable synchronization.'}
               >
                 {isUpdatingGoogleCalendar ? 'Updating...' : 'Update Google Calendar'}
+              </button>
+            )}
+            {viewMode === 'calendar' && pendingAppointments.length > 0 && (
+              <button
+                type="button"
+                className="calendar-update-google-calendar"
+                onClick={handleSyncPendingAppointments}
+                disabled={!googleStatus.connected || isSyncingPendingAppointments}
+                title={googleStatus.connected ? undefined : 'Connect Google Calendar to enable synchronization.'}
+              >
+                {isSyncingPendingAppointments
+                  ? 'Uploading...'
+                  : `Upload ${pendingAppointments.length} pending ${pendingAppointments.length === 1 ? 'appointment' : 'appointments'}`}
               </button>
             )}
           </div>
@@ -605,56 +819,73 @@ function App() {
 
         <div className="app-main">
           <div className="top-pane">
-            <div className="tile-row">
-              {schedules.map((schedule) => (
-                <ScheduleTile
-                  key={schedule.id}
-                  schedule={schedule}
-                  isActive={schedule.id === activeScheduleId}
-                  onSelect={(id) => {
-                    setActiveScheduleId(id);
-                    setSelected(null);
-                  }}
-                />
-              ))}
-            </div>
-            <div className="top-pane-actions">
-              <button type="button" onClick={handleCreateSchedule}>
-                New Schedule
-              </button>
-              {activeScheduleId && (
-                <button type="button" onClick={handleCopySchedule}>
-                  Copy Schedule
-                </button>
-              )}
-              {activeScheduleId && (
-                <button type="button" onClick={handleDeleteSchedule}>
-                  Delete Schedule
-                </button>
-              )}
-            </div>
+            {viewMode === 'schedule' && (
+              <>
+                <div className="tile-row">
+                  {schedules.map((schedule) => (
+                    <ScheduleTile
+                      key={schedule.id}
+                      schedule={schedule}
+                      isActive={schedule.id === activeScheduleId}
+                      onSelect={(id) => {
+                        setActiveScheduleId(id);
+                        setSelected(null);
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="top-pane-actions">
+                  <button type="button" onClick={handleCreateSchedule}>
+                    New Schedule
+                  </button>
+                  {activeScheduleId && (
+                    <button type="button" onClick={handleCopySchedule}>
+                      Copy Schedule
+                    </button>
+                  )}
+                  {activeScheduleId && (
+                    <button type="button" onClick={handleDeleteSchedule}>
+                      Delete Schedule
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <aside className="left-pane">
-            <h2>Classes</h2>
-            <button type="button" className="pane-section-action" onClick={handleCreateClass} disabled={!activeScheduleId}>
-              New Class
-            </button>
-            <div className="tile-list">
-              {classes.map((trainingClass) => (
-                <ClassTile
-                  key={trainingClass.id}
-                  trainingClass={trainingClass}
-                  onSelect={(id) => setSelected({ type: 'class', id })}
-                  isDropTarget
-                  isSelected={selected?.type === 'class' && selected.id === trainingClass.id}
-                />
-              ))}
-            </div>
+            {viewMode === 'schedule' && (
+              <>
+                <h2>Classes</h2>
+                <button type="button" className="pane-section-action" onClick={handleCreateClass} disabled={!activeScheduleId}>
+                  New Class
+                </button>
+                <div className="tile-list">
+                  {classes.map((trainingClass) => (
+                    <ClassTile
+                      key={trainingClass.id}
+                      trainingClass={trainingClass}
+                      onSelect={(id) => setSelected({ type: 'class', id })}
+                      isDropTarget
+                      isSelected={selected?.type === 'class' && selected.id === trainingClass.id}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </aside>
 
           <main className="focus-pane">
-            {classDetail ? (
+            {viewMode === 'calendar' ? (
+              <Calendar
+                key="calendar-view"
+                entries={calendarViewEntries}
+                hours={HOURS}
+                onSelectEntry={() => {}}
+                viewDate={calendarViewDate}
+                onViewDateChange={setCalendarViewDate}
+              />
+            ) : classDetail ? (
               <ClassView
                 trainingClass={classDetail}
                 onRemoveEnrollment={handleRemoveEnrollment}
@@ -697,7 +928,7 @@ function App() {
               New Student
             </button>
             <div className="tile-list">
-              {students.map((student) => (
+              {studentsWithAdHocCounts.map((student) => (
                 <StudentTile
                   key={student.id}
                   student={student}

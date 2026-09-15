@@ -82,6 +82,9 @@ public class ScheduledClassEntryDto
     public TimeSpan Duration { get; set; }
     public string? Location { get; set; }
     public RecurrenceType RecurrenceType { get; set; }
+
+    /// <summary>The specific calendar date this occurrence falls on. Only set when <see cref="RecurrenceType"/> is <see cref="Models.RecurrenceType.Once"/>.</summary>
+    public DateOnly? EventDate { get; set; }
 }
 
 public class ScheduleDetailDto
@@ -174,6 +177,15 @@ public class CreateScheduledStudentRequest
     public TimeSpan StartTime { get; set; }
 }
 
+/// <summary>Creates an ad-hoc one-time student appointment pushed directly to Google Calendar (not tied to any ClassPlanner schedule).</summary>
+public class CreateGoogleAppointmentRequest
+{
+    public Guid StudentId { get; set; }
+    public DateOnly EventDate { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan Duration { get; set; }
+}
+
 public class MoveScheduledClassRequest
 {
     public DayOfWeek DayOfWeek { get; set; }
@@ -200,5 +212,18 @@ public class GoogleCalendarConfigDto
 {
     public string ClientId { get; set; } = "";
     public string Scope { get; set; } = "";
+}
+
+/// <summary>Plain, read-only view of a Google Calendar event for display purposes only (no reconciliation/merge with ClassPlanner data).</summary>
+public class GoogleCalendarEventDto
+{
+    public string Id { get; set; } = "";
+    public string Summary { get; set; } = "";
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public DateTime Start { get; set; }
+    public DateTime End { get; set; }
+    /// <summary>The ClassPlanner student this event represents, when the event was created for a student appointment.</summary>
+    public Guid? StudentId { get; set; }
 }
 
