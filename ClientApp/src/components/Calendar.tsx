@@ -48,7 +48,8 @@ function DraggableEntry({ entry, onSelectEntry }: DraggableEntryProps) {
       type="button"
       ref={setNodeRef}
       style={{ ...style, top: `${(minuteWithinHour / 60) * 100}%`, height: `${heightPercent}%` }}
-      className={`tile calendar-entry${isDragging ? ' is-dragging' : ''}${entry.studentId ? ' calendar-entry-student' : ''}${isCompact ? ' calendar-entry-compact' : ''}`}
+      className={`tile calendar-entry${isDragging ? ' is-dragging' : ''}${entry.studentId ? ' calendar-entry-student' : ''}${isCompact ? ' calendar-entry-compact' : ''}${entry.isPending ? ' calendar-entry-pending' : ''}`}
+      title={entry.isPending ? 'Not yet uploaded to Google Calendar' : undefined}
       onClick={() => onSelectEntry(entry.id)}
       {...listeners}
       {...attributes}
@@ -245,10 +246,10 @@ export function Calendar({
         {hours.map((hour) => (
           <div key={hour} className="calendar-row" style={{ display: 'contents' }}>
             <div className="calendar-hour-label">{formatHourLabel(hour)}</div>
-            {orderedDays.map((day) => (
+            {orderedDays.map((day, index) => (
               <div key={`${day}-${hour}`} className="calendar-cell">
                 {QUARTER_MINUTES.map((minute) => (
-                  <CalendarSlot key={minute} dayOfWeek={day} hour={hour} minute={minute} />
+                  <CalendarSlot key={minute} dayOfWeek={day} hour={hour} minute={minute} date={weekDates?.[index]} />
                 ))}
                 {entriesFor(day, hour).map((entry) => (
                   <DraggableEntry key={entry.id} entry={entry} onSelectEntry={onSelectEntry} />

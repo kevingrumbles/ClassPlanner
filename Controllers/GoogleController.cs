@@ -32,6 +32,43 @@ public class GoogleController(ClassPlannerService service, IOptions<GoogleOption
         return Ok(status);
     }
 
+    /// <summary>
+    /// Returns a plain, read-only list of upcoming events (today forward) from the user's
+    /// dedicated "Class Planner" Google Calendar. No reconciliation with ClassPlanner data.
+    /// </summary>
+    [HttpGet("events")]
+    public async Task<IActionResult> GetEvents()
+    {
+        var accessToken = GetBearerToken();
+        var events = await service.GetUpcomingGoogleCalendarEventsAsync(accessToken);
+        return Ok(events);
+    }
+
+    /// <summary>
+    /// Creates a one-time appointment directly on the user's dedicated "Class Planner" Google
+    /// Calendar for the given student, bypassing ClassPlanner schedules entirely. Used by the
+    /// Calendar View's drag-and-drop onto a dated slot.
+    /// </summary>
+    [HttpPost("events")]
+    public async Task<IActionResult> CreateEvent([FromBody] CreateGoogleAppointmentRequest request)
+    {
+        var accessToken = GetBearerToken();
+        try
+        {
+            var created = await service.CreateAdHocGoogleAppointmentAsync(
+                request.StudentId, request.EventDate, request.StartTime, request.Duration, accessToken);
+            return Ok(created);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ClassPlannerConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     private string? GetBearerToken()
     {
         var header = Request.Headers.Authorization.ToString();

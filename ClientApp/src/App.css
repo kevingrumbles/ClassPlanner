@@ -213,6 +213,7 @@ body {
   cursor: grab;
   font: inherit;
   width: 100%;
+  transition: padding 0.15s ease, gap 0.15s ease;
 }
 
 .tile:hover {
@@ -725,6 +726,12 @@ body {
 .calendar-entry.calendar-entry-student {
   background: #dcfce7;
   border-color: #86efac;
+}
+
+.calendar-entry.calendar-entry-pending {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  border-style: dashed;
 }
 
 

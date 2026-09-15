@@ -656,6 +656,75 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         return ToEntryDto(entry, [], [student]);
     }
 
+    /// <summary>
+    /// Creates a one-time appointment directly on the user's dedicated "Class Planner" Google
+    /// Calendar for the given student, bypassing ClassPlanner schedules entirely. Used by the
+    /// Calendar View's drag-and-drop onto a dated slot, where appointments are not associated
+    /// with any schedule until explicitly synced.
+    /// </summary>
+    public async Task<GoogleCalendarEventDto> CreateAdHocGoogleAppointmentAsync(
+        Guid studentId, DateOnly eventDate, TimeSpan startTime, TimeSpan duration, string? accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var validation = await googleCalendarService.ValidateAccessTokenAsync(accessToken);
+        if (!validation.IsValid)
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var student = await dataStore.GetStudentAsync(studentId);
+        if (student is null)
+        {
+            throw new ClassPlannerNotFoundException("Student was not found.");
+        }
+
+        var settings = await dataStore.GetGoogleCalendarSettingsAsync();
+        var calendarId = await googleCalendarService.FindOrCreateCalendarAsync(accessToken, settings.CalendarId);
+        if (calendarId != settings.CalendarId)
+        {
+            settings.CalendarId = calendarId;
+            await dataStore.SaveGoogleCalendarSettingsAsync(settings);
+        }
+
+        var summary = $"{student.FirstName} {student.LastName}";
+        var input = new GoogleCalendarEventInput(
+            summary,
+            $"Student: {summary}",
+            null,
+            eventDate,
+            startTime,
+            duration,
+            eventDate.DayOfWeek,
+            null,
+            Guid.Empty,
+            Guid.NewGuid(),
+            null,
+            studentId,
+            RecurrenceType.Once,
+            eventDate);
+
+        var eventId = await googleCalendarService.UpsertEventAsync(accessToken, calendarId, null, input);
+        var start = eventDate.ToDateTime(TimeOnly.FromTimeSpan(startTime));
+        var end = start + duration;
+
+        logger.LogInformation("Ad-hoc Google appointment created for student {StudentId} on {EventDate}", studentId, eventDate);
+
+        return new GoogleCalendarEventDto
+        {
+            Id = eventId,
+            Summary = summary,
+            Description = input.Description,
+            Location = null,
+            Start = start,
+            End = end,
+            StudentId = studentId,
+        };
+    }
+
     public async Task<ScheduledClassEntryDto> MoveScheduledClassAsync(Guid scheduleId, Guid entryId, DayOfWeek dayOfWeek, TimeSpan startTime, TimeSpan? duration = null, string? location = null)
     {
         var entries = await dataStore.GetScheduledClassesAsync();
@@ -745,7 +814,8 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         StartTime = entry.StartTime,
         Duration = entry.Duration,
         Location = entry.Location,
-        RecurrenceType = entry.RecurrenceType
+        RecurrenceType = entry.RecurrenceType,
+        EventDate = entry.EventDate
     };
 
     private static string FormatStudentName(Student? student) =>
@@ -769,6 +839,56 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             Connected = true,
             Email = validation.Email
         };
+    }
+
+    /// <summary>
+    /// Returns a plain, read-only list of upcoming events (today forward) from the user's
+    /// dedicated "Class Planner" Google Calendar. This is a simple display of what's on the
+    /// calendar - no merging or reconciliation with ClassPlanner schedule data is performed.
+    /// </summary>
+    public async Task<List<GoogleCalendarEventDto>> GetUpcomingGoogleCalendarEventsAsync(string? accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var validation = await googleCalendarService.ValidateAccessTokenAsync(accessToken);
+        if (!validation.IsValid)
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var settings = await dataStore.GetGoogleCalendarSettingsAsync();
+        if (string.IsNullOrEmpty(settings.CalendarId))
+        {
+            return [];
+        }
+
+        var today = DateTime.Today;
+        List<GoogleCalendarEventSnapshot> events;
+        try
+        {
+            events = await googleCalendarService.ListEventsAsync(accessToken, settings.CalendarId, today);
+        }
+        catch (Exception ex) when (GoogleCalendarService.IsCalendarNotFound(ex))
+        {
+            return [];
+        }
+
+        return events
+            .OrderBy(e => e.Start)
+            .Select(e => new GoogleCalendarEventDto
+            {
+                Id = e.EventId,
+                Summary = e.Summary,
+                Description = e.Description,
+                Location = e.Location,
+                Start = e.Start,
+                End = e.End,
+                StudentId = e.StudentId,
+            })
+            .ToList();
     }
 
     /// <summary>

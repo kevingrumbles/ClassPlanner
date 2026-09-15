@@ -5,14 +5,16 @@ interface CalendarSlotProps {
   dayOfWeek: DayOfWeekIndex;
   hour: number;
   minute: number;
+  /** Specific calendar date (ISO "yyyy-MM-dd") for this slot, when known (Calendar View mode). */
+  date?: string;
 }
 
 /** A single droppable day-of-week/hour/minute cell in the weekly schedule grid (no specific date). Represents a 15-minute increment. */
-export function CalendarSlot({ dayOfWeek, hour, minute }: CalendarSlotProps) {
+export function CalendarSlot({ dayOfWeek, hour, minute, date }: CalendarSlotProps) {
   const id = `slot:${dayOfWeek}:${hour}:${minute}`;
   const { setNodeRef, isOver, active } = useDroppable({
     id,
-    data: { type: 'slot', dayOfWeek, hour, minute },
+    data: { type: 'slot', dayOfWeek, hour, minute, date },
   });
 
   const isClassDragActive =
