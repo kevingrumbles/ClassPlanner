@@ -23,11 +23,22 @@ export function ClassView(props: ClassViewProps) {
 }
 
 function ClassViewContent({ trainingClass, onRemoveEnrollment, onDeleteClass, onSaveClass }: ClassViewProps) {
-    const [name, setName] = useState(trainingClass.name);
-    const [description, setDescription] = useState(trainingClass.description ?? '');
-    const [notes, setNotes] = useState(trainingClass.notes ?? '');
+    const name = trainingClass.name;
+    const description = trainingClass.description ?? '';
+    const notes = trainingClass.notes ?? '';
 
-    const isDirty = description !== (trainingClass.description ?? '') || notes !== (trainingClass.notes ?? '');
+    /**
+     * Persists as soon as a field is committed, carrying the other values through unchanged so
+     * a single edit never clobbers another.
+     */
+    function save(next: { name?: string; description?: string; notes?: string }) {
+        onSaveClass?.(
+            trainingClass.id,
+            next.name ?? name,
+            (next.description ?? description) || null,
+            (next.notes ?? notes) || null
+        );
+    }
 
     const { setNodeRef, isOver, active } = useDroppable({
         id: `class-view:${trainingClass.id}`,
@@ -46,20 +57,10 @@ function ClassViewContent({ trainingClass, onRemoveEnrollment, onDeleteClass, on
                     <EditableText
                         value={name}
                         placeholder="Class name"
-                        onChange={setName}
-                        onCommit={(value) => onSaveClass?.(trainingClass.id, value, description || null, notes || null)}
+                        onCommit={(value) => save({ name: value })}
                     />
                 </h2>
                 <div className="class-view-header-actions">
-                    {isDirty && onSaveClass && (
-                        <button
-                            type="button"
-                            className="class-view-save"
-                            onClick={() => onSaveClass(trainingClass.id, name, description || null, notes || null)}
-                        >
-                            Save Changes
-                        </button>
-                    )}
                     {onDeleteClass && (
                         <button type="button" className="class-view-delete" onClick={() => onDeleteClass(trainingClass.id)}>
                             Delete Class
@@ -68,21 +69,23 @@ function ClassViewContent({ trainingClass, onRemoveEnrollment, onDeleteClass, on
                 </div>
             </div>
 
+            <p className="class-view-hint">Click any value below to edit it. Changes save automatically.</p>
+
             <dl className="class-view-details">
                 <dt>Description</dt>
                 <dd>
                     <EditableTextarea
                         value={description}
-                        placeholder="—"
-                        onChange={setDescription}
+                        placeholder="Click to edit"
+                        onCommit={(value) => save({ description: value })}
                     />
                 </dd>
                 <dt>Notes</dt>
                 <dd>
                     <EditableTextarea
                         value={notes}
-                        placeholder="—"
-                        onChange={setNotes}
+                        placeholder="Click to edit"
+                        onCommit={(value) => save({ notes: value })}
                     />
                 </dd>
             </dl>
@@ -113,45 +116,11 @@ function ClassViewContent({ trainingClass, onRemoveEnrollment, onDeleteClass, on
 interface EditableTextareaProps {
     value: string;
     placeholder?: string;
-    onChange: (value: string) => void;
-}
-
-/** Renders a value as plain text; clicking it swaps in a textarea for editing. Changes are tracked via onChange, saved by the parent's Save Changes button. */
-function EditableTextarea({ value, placeholder, onChange }: EditableTextareaProps) {
-    const [isEditing, setIsEditing] = useState(false);
-
-    if (!isEditing) {
-        return (
-            <span className="editable-text" onClick={() => setIsEditing(true)}>
-                {value || <span className="editable-text-placeholder">{placeholder ?? 'Click to edit'}</span>}
-            </span>
-        );
-    }
-
-    return (
-        <textarea
-            className="class-view-textarea"
-            value={value}
-            autoFocus
-            rows={2}
-            onChange={(e) => onChange(e.target.value)}
-            onBlur={() => setIsEditing(false)}
-            onKeyDown={(e) => {
-                if (e.key === 'Escape') setIsEditing(false);
-            }}
-        />
-    );
-}
-
-interface EditableTextProps {
-    value: string;
-    placeholder?: string;
-    onChange: (value: string) => void;
     onCommit: (value: string) => void;
 }
 
-/** Renders a value as plain text; clicking it swaps in an input that saves on blur or Enter. */
-function EditableText({ value, placeholder, onChange, onCommit }: EditableTextProps) {
+/** Renders a value as plain text; clicking it swaps in a textarea that saves on blur and discards on Escape. */
+function EditableTextarea({ value, placeholder, onCommit }: EditableTextareaProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [draft, setDraft] = useState(value);
 
@@ -163,7 +132,55 @@ function EditableText({ value, placeholder, onChange, onCommit }: EditableTextPr
     function commit() {
         setIsEditing(false);
         if (draft !== value) {
-            onChange(draft);
+            onCommit(draft);
+        }
+    }
+
+    if (!isEditing) {
+        return (
+            <span className="editable-text" onClick={startEditing}>
+                {value || <span className="editable-text-placeholder">{placeholder ?? 'Click to edit'}</span>}
+            </span>
+        );
+    }
+
+    return (
+        <textarea
+            className="class-view-textarea"
+            value={draft}
+            autoFocus
+            rows={2}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                    setDraft(value);
+                    setIsEditing(false);
+                }
+            }}
+        />
+    );
+}
+
+interface EditableTextProps {
+    value: string;
+    placeholder?: string;
+    onCommit: (value: string) => void;
+}
+
+/** Renders a value as plain text; clicking it swaps in an input that saves on blur or Enter. */
+function EditableText({ value, placeholder, onCommit }: EditableTextProps) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [draft, setDraft] = useState(value);
+
+    function startEditing() {
+        setDraft(value);
+        setIsEditing(true);
+    }
+
+    function commit() {
+        setIsEditing(false);
+        if (draft !== value) {
             onCommit(draft);
         }
     }

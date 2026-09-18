@@ -5,9 +5,11 @@ interface StudentTileProps {
   student: StudentSummary;
   onSelect: (id: string) => void;
   isSelected?: boolean;
+  /** Hides the enrolled-class line, used where class enrollment is not being represented. */
+  hideEnrolledClasses?: boolean;
 }
 
-export function StudentTile({ student, onSelect, isSelected }: StudentTileProps) {
+export function StudentTile({ student, onSelect, isSelected, hideEnrolledClasses }: StudentTileProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `student:${student.id}`,
     data: { type: 'student', studentId: student.id },
@@ -34,9 +36,11 @@ export function StudentTile({ student, onSelect, isSelected }: StudentTileProps)
       <span className="tile-title">
         {student.firstName} {student.lastName}
       </span>
-      <span className="tile-subtitle">
-        {student.enrolledClassCount} enrolled {student.enrolledClassCount === 1 ? 'class' : 'classes'}
-      </span>
+      {!hideEnrolledClasses && (
+        <span className="tile-subtitle">
+          {student.enrolledClassCount} enrolled {student.enrolledClassCount === 1 ? 'class' : 'classes'}
+        </span>
+      )}
       {student.appointmentCount > 0 && (
         <span className="tile-subtitle">
           {student.appointmentCount} {student.appointmentCount === 1 ? 'appointment' : 'appointments'}

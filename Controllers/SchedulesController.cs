@@ -18,7 +18,9 @@ public class SchedulesController(ClassPlannerService service) : ControllerBase
     [HttpGet("{scheduleId:guid}")]
     public async Task<IActionResult> GetSchedule(Guid scheduleId)
     {
-        var schedule = await service.GetScheduleDetailAsync(scheduleId);
+        // The token is optional: when supplied, entries whose Google events have been deleted
+        // in Google Calendar are reverted to the "not uploaded" state.
+        var schedule = await service.GetScheduleDetailAsync(scheduleId, GetBearerToken());
         if (schedule is null)
         {
             return NotFound(new { message = "Schedule was not found." });

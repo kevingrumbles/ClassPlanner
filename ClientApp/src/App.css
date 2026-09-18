@@ -25,7 +25,7 @@ body {
 }
 
 .tool-ribbon h1 {
-  margin: 0 auto 0 0;
+  margin: 0;
   font-size: 20px;
   color: white;
 }
@@ -54,6 +54,8 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* Absorbs the free space so the title and view toggle stay grouped on the left. */
+  margin-left: auto;
 }
 
 .google-status-connected {
@@ -212,6 +214,7 @@ body {
   padding: 10px 12px;
   cursor: grab;
   font: inherit;
+  color: #1f2937;
   width: 100%;
   transition: padding 0.15s ease, gap 0.15s ease;
 }
@@ -231,6 +234,7 @@ body {
 
 .tile-title {
   font-weight: 600;
+  color: #1f2937;
 }
 
 .tile-subtitle {
@@ -379,6 +383,8 @@ body {
   border-radius: 6px;
   border: 1px solid #d1d5db;
   box-sizing: border-box;
+  color: #1f2937;
+  background: white;
 }
 
 .class-view-input:focus-visible {
@@ -394,6 +400,7 @@ body {
   margin: -2px -4px;
   border-radius: 4px;
   cursor: pointer;
+  color: #1f2937;
 }
 
 .editable-text:hover {
@@ -536,6 +543,33 @@ body {
   border: 1px solid #d1d5db;
 }
 
+.calendar-update-google-calendar {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #0f766e;
+  background: #0f766e;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.calendar-update-google-calendar:hover:not(:disabled) {
+  background: #115e59;
+  border-color: #115e59;
+}
+
+.calendar-update-google-calendar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.calendar-update-google-calendar:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
 .calendar-delete-schedule {
   font: inherit;
   font-size: 13px;
@@ -554,29 +588,35 @@ body {
 .calendar-week-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 5px 10px;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
 }
 
 .calendar-week-nav button {
   font: inherit;
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: white;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #374151;
+  background: #1f2937;
+  color: white;
   cursor: pointer;
 }
 
 .calendar-week-nav button:hover {
-  background: #eef2ff;
+  background: #374151;
+}
+
+.calendar-week-nav button:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
 }
 
 .calendar-week-nav-label {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   color: #1f2937;
 }
 
@@ -584,21 +624,69 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 11px;
   color: #374151;
   margin-left: auto;
 }
 
 .calendar-week-nav-date-field input[type='date'] {
   font: inherit;
-  font-size: 13px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid #374151;
+  background: #1f2937;
+  color: white;
 }
 
 .calendar-grid {
   display: grid;
+}
+
+.calendar-grid-wrapper {
+  position: relative;
+}
+
+.calendar-grid.is-loading {
+  opacity: 0.45;
+  filter: grayscale(1);
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.calendar-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.6);
+  z-index: 2;
+}
+
+.calendar-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #c7cbd3;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: calendar-spin 0.8s linear infinite;
+}
+
+@keyframes calendar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-loading-spinner {
+    animation-duration: 2.4s;
+  }
 }
 
 .calendar-corner {
@@ -689,6 +777,10 @@ body {
 .calendar-entry-name {
   font-weight: 600;
   line-height: 1.2;
+  /* Long class and student names must not spill outside the tile. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .calendar-entry-time {
@@ -700,6 +792,25 @@ body {
   color: #374151;
   font-size: 11px;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 30 minutes or less: tighter text so the name and meta line still fit. */
+.calendar-entry-small {
+  padding: 2px 5px;
+  font-size: 11px;
+}
+
+.calendar-entry-small .calendar-entry-name {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.calendar-entry-small .calendar-entry-meta {
+  font-size: 10px;
+  line-height: 1.15;
 }
 
 .calendar-entry-compact {
@@ -723,15 +834,46 @@ body {
   opacity: 0.5;
 }
 
-.calendar-entry.calendar-entry-student {
-  background: #dcfce7;
-  border-color: #86efac;
+/* Scheduled classes. */
+.calendar-entry.calendar-entry-class {
+  background: #ccfbf1;
+  border-color: #5eead4;
 }
 
+/* Recurring appointments placed on a schedule. */
+.calendar-entry.calendar-entry-recurring {
+  background: #fce7f3;
+  border-color: #f9a8d4;
+}
+
+/* One-time appointments, not tied to a recurring schedule entry. */
+.calendar-entry.calendar-entry-one-time {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+/* Unsaved, not yet uploaded to Google Calendar. */
 .calendar-entry.calendar-entry-pending {
-  background: #fef3c7;
-  border-color: #fbbf24;
+  background: #ffedd5;
+  border-color: #fb923c;
   border-style: dashed;
+}
+
+/* Removed locally, still on Google Calendar until the next upload. */
+.calendar-entry.calendar-entry-pending-deletion {
+  background: #fef2f2;
+  border-color: #dc2626;
+  border-style: dashed;
+  color: #991b1b;
+}
+
+.calendar-entry-unsaved-label {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.calendar-entry.is-not-draggable {
+  cursor: pointer;
 }
 
 
@@ -741,6 +883,27 @@ body {
   border-radius: 8px;
   padding: 16px;
   min-height: 100%;
+  /* The panel always has a light background, so pin the text dark. Without this the
+     `color-scheme: light dark` declaration in index.css lets a dark OS theme render
+     headings and values in near-white. */
+  color: #1f2937;
+}
+
+.focus-panel h2,
+.focus-panel h3 {
+  color: #1f2937;
+}
+
+.focus-panel dd {
+  color: #1f2937;
+  margin-left: 0;
+}
+
+.focus-panel input,
+.focus-panel select,
+.focus-panel textarea {
+  color: #1f2937;
+  background: white;
 }
 
 .focus-panel dl {

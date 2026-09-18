@@ -85,6 +85,18 @@ public class ScheduledClassEntryDto
 
     /// <summary>The specific calendar date this occurrence falls on. Only set when <see cref="RecurrenceType"/> is <see cref="Models.RecurrenceType.Once"/>.</summary>
     public DateOnly? EventDate { get; set; }
+
+    /// <summary>
+    /// True when this entry has not yet been pushed to Google Calendar, i.e. there is no
+    /// <see cref="Models.GoogleCalendarEventMapping"/> for it yet.
+    /// </summary>
+    public bool IsPending { get; set; }
+
+    /// <summary>
+    /// True when this entry has been removed locally and its Google Calendar event will be
+    /// deleted on the next upload.
+    /// </summary>
+    public bool PendingDeletion { get; set; }
 }
 
 public class ScheduleDetailDto
@@ -186,6 +198,14 @@ public class CreateGoogleAppointmentRequest
     public TimeSpan Duration { get; set; }
 }
 
+/// <summary>Updates the timing of an existing one-time appointment on the Class Planner calendar.</summary>
+public class UpdateGoogleAppointmentRequest
+{
+    public DateOnly EventDate { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan Duration { get; set; }
+}
+
 public class MoveScheduledClassRequest
 {
     public DayOfWeek DayOfWeek { get; set; }
@@ -225,5 +245,9 @@ public class GoogleCalendarEventDto
     public DateTime End { get; set; }
     /// <summary>The ClassPlanner student this event represents, when the event was created for a student appointment.</summary>
     public Guid? StudentId { get; set; }
+    /// <summary>The ClassPlanner class this event represents, when the event was created for a scheduled class.</summary>
+    public Guid? TrainingClassId { get; set; }
+    /// <summary>How the event repeats, when ClassPlanner recorded it. Repeating events are not editable from Calendar View.</summary>
+    public RecurrenceType? RecurrenceType { get; set; }
 }
 

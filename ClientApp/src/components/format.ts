@@ -40,13 +40,12 @@ export function formatTimeOfDay(timeSpan: string): string {
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-/** Returns the Monday on/before the given ISO date string ("yyyy-MM-dd"). */
+/** Returns the Sunday on/before the given ISO date string ("yyyy-MM-dd"). */
 export function startOfWeek(isoDate: string): string {
   const [year, month, day] = isoDate.split('-').map(Number);
   const date = new Date(year, month - 1, day);
-  const dayOfWeek = date.getDay();
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  date.setDate(date.getDate() + diffToMonday);
+  // getDay() is 0 for Sunday, so subtracting it always lands on the week's Sunday.
+  date.setDate(date.getDate() - date.getDay());
   return toIsoDate(date);
 }
 

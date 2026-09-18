@@ -11,11 +11,29 @@ namespace ClassPlanner.Services;
 /// </summary>
 public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService googleCalendarService, ILogger<ClassPlannerService> logger)
 {
-    public async Task<List<StudentSummaryDto>> GetStudentsAsync()
+    /// <summary>
+    /// Returns student summaries. When <paramref name="scheduleId"/> is supplied, the
+    /// appointment count is limited to that schedule, so the Schedule Planner's student tiles
+    /// report only the appointments belonging to the schedule currently being planned rather
+    /// than a running total across every schedule.
+    /// </summary>
+    public async Task<List<StudentSummaryDto>> GetStudentsAsync(Guid? scheduleId = null)
     {
         var students = await dataStore.GetStudentsAsync();
         var enrollments = await dataStore.GetEnrollmentsAsync();
         var scheduledClasses = await dataStore.GetScheduledClassesAsync();
+
+        var appointments = scheduledClasses
+            .Where(sc => !sc.TrainingClassId.HasValue && !sc.PendingDeletion)
+            .Where(sc => scheduleId is null || sc.ScheduleId == scheduleId)
+            .ToList();
+
+        // Enrollments reference a class rather than a schedule, so scope them via the classes
+        // belonging to the requested schedule.
+        var classes = await dataStore.GetClassesAsync();
+        var scopedClassIds = scheduleId is null
+            ? null
+            : classes.Where(c => c.ScheduleId == scheduleId).Select(c => c.Id).ToHashSet();
 
         return students
             .Select(s => new StudentSummaryDto
@@ -23,8 +41,9 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
                 Id = s.Id,
                 FirstName = s.FirstName,
                 LastName = s.LastName,
-                EnrolledClassCount = enrollments.Count(e => e.StudentId == s.Id),
-                AppointmentCount = scheduledClasses.Count(sc => sc.StudentId == s.Id && !sc.TrainingClassId.HasValue)
+                EnrolledClassCount = enrollments.Count(e =>
+                    e.StudentId == s.Id && (scopedClassIds is null || scopedClassIds.Contains(e.TrainingClassId))),
+                AppointmentCount = appointments.Count(sc => sc.StudentId == s.Id)
             })
             .ToList();
     }
@@ -48,6 +67,9 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             throw new ClassPlannerNotFoundException("Student was not found.");
         }
 
+        var nameChanged = !string.Equals(student.FirstName, firstName, StringComparison.Ordinal)
+            || !string.Equals(student.LastName, lastName, StringComparison.Ordinal);
+
         student.FirstName = firstName;
         student.LastName = lastName;
         student.Email = email;
@@ -55,6 +77,11 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         student.EmergencyContact = emergencyContact;
         student.Notes = notes;
         await dataStore.SaveStudentsAsync(students);
+        if (nameChanged)
+        {
+            // The student name is the Google event summary for their appointments.
+            await InvalidateGoogleMappingsForStudentAsync(studentId);
+        }
         logger.LogInformation("Student updated {StudentId}", studentId);
 
         var detail = await GetStudentDetailAsync(studentId);
@@ -111,7 +138,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
 
         var scheduledClasses = await dataStore.GetScheduledClassesAsync();
         var scheduledAppointments = scheduledClasses
-            .Where(sc => sc.StudentId == id && !sc.TrainingClassId.HasValue)
+            .Where(sc => sc.StudentId == id && !sc.TrainingClassId.HasValue && !sc.PendingDeletion)
             .Select(sc => ToScheduledAppointmentSummary(sc, schedules))
             .OrderBy(a => a.DayOfWeek)
             .ThenBy(a => a.StartTime)
@@ -164,10 +191,17 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             throw new ClassPlannerNotFoundException("Class was not found.");
         }
 
+        var nameChanged = !string.Equals(trainingClass.Name, name, StringComparison.Ordinal);
+
         trainingClass.Name = name;
         trainingClass.Description = description;
         trainingClass.Notes = notes;
         await dataStore.SaveClassesAsync(classes);
+        if (nameChanged)
+        {
+            // The class name is the Google event summary, so scheduled occurrences are stale.
+            await InvalidateGoogleMappingsForClassAsync(classId);
+        }
         logger.LogInformation("Class updated {ClassId}", classId);
 
         var detail = await GetClassDetailAsync(classId);
@@ -302,6 +336,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         });
 
         await dataStore.SaveEnrollmentsAsync(enrollments);
+        await InvalidateGoogleMappingsForClassAsync(classId);
         logger.LogInformation("Enrollment created for class {ClassId}", classId);
     }
 
@@ -316,6 +351,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
 
         enrollments.Remove(enrollment);
         await dataStore.SaveEnrollmentsAsync(enrollments);
+        await InvalidateGoogleMappingsForClassAsync(classId);
         logger.LogInformation("Enrollment removed for class {ClassId}", classId);
     }
 
@@ -328,14 +364,14 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             {
                 Id = s.Id,
                 Name = s.Name,
-                EntryCount = entries.Count(e => e.ScheduleId == s.Id),
+                EntryCount = entries.Count(e => e.ScheduleId == s.Id && !e.PendingDeletion),
                 StartDate = s.StartDate,
                 EndDate = s.EndDate
             })
             .ToList();
     }
 
-    public async Task<ScheduleDetailDto?> GetScheduleDetailAsync(Guid scheduleId)
+    public async Task<ScheduleDetailDto?> GetScheduleDetailAsync(Guid scheduleId, string? accessToken = null)
     {
         var schedule = await dataStore.GetScheduleAsync(scheduleId);
         if (schedule is null)
@@ -348,6 +384,9 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         var entries = await dataStore.GetScheduledClassesAsync();
         var enrollments = await dataStore.GetEnrollmentsAsync();
 
+        // Entries without a Google Calendar event mapping have not been uploaded yet.
+        var syncedScheduledClassIds = await GetSyncedScheduledClassIdsAsync(scheduleId, accessToken);
+
         return new ScheduleDetailDto
         {
             Id = schedule.Id,
@@ -356,9 +395,128 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             EndDate = schedule.EndDate,
             Entries = entries
                 .Where(e => e.ScheduleId == scheduleId)
-                .Select(e => ToEntryDto(e, classes, students, enrollments))
+                .Select(e => ToEntryDto(e, classes, students, enrollments, syncedScheduledClassIds))
                 .ToList()
         };
+    }
+
+    /// <summary>
+    /// Returns the ids of this schedule's entries that are currently represented by a Google
+    /// Calendar event. When an <paramref name="accessToken"/> is available the stored mappings
+    /// are verified against Google, and any whose event has since been deleted there are pruned
+    /// so the entry reverts to the "not uploaded" state. Without a token the stored mappings are
+    /// trusted as-is, since their absence cannot be distinguished from being signed out.
+    /// </summary>
+    private async Task<HashSet<Guid>> GetSyncedScheduledClassIdsAsync(Guid scheduleId, string? accessToken)
+    {
+        var mappings = await dataStore.GetGoogleCalendarEventMappingsAsync();
+        var scheduleMappings = mappings.Where(m => m.ScheduleId == scheduleId).ToList();
+
+        if (scheduleMappings.Count == 0 || string.IsNullOrWhiteSpace(accessToken))
+        {
+            return scheduleMappings.Where(m => !m.NeedsSync).Select(m => m.ScheduledClassId).ToHashSet();
+        }
+
+        var validation = await googleCalendarService.ValidateAccessTokenAsync(accessToken);
+        if (!validation.IsValid)
+        {
+            return scheduleMappings.Where(m => !m.NeedsSync).Select(m => m.ScheduledClassId).ToHashSet();
+        }
+
+        // Verify the mappings concurrently: this is one Google API call per uploaded entry, and
+        // issuing them sequentially makes loading a large schedule noticeably slow.
+        var verifications = await Task.WhenAll(scheduleMappings.Select(async mapping =>
+        {
+            try
+            {
+                var exists = await googleCalendarService.EventExistsAsync(accessToken, mapping.CalendarId, mapping.EventId);
+                return (mapping, isStale: !exists);
+            }
+            catch (Exception ex) when (GoogleCalendarService.IsCalendarNotFound(ex))
+            {
+                // The whole Class Planner calendar is gone, so every event on it is gone too.
+                return (mapping, isStale: true);
+            }
+            catch (Exception ex)
+            {
+                // Transient/API failures must not cause an uploaded entry to be reported as
+                // pending, so leave the mapping alone and try again on the next load.
+                logger.LogWarning(ex, "Unable to verify Google event {EventId}; leaving its mapping intact.", mapping.EventId);
+                return (mapping, isStale: false);
+            }
+        }));
+
+        var staleMappings = verifications.Where(v => v.isStale).Select(v => v.mapping).ToList();
+
+        if (staleMappings.Count > 0)
+        {
+            foreach (var stale in staleMappings)
+            {
+                mappings.Remove(stale);
+                scheduleMappings.Remove(stale);
+            }
+
+            await dataStore.SaveGoogleCalendarEventMappingsAsync(mappings);
+            logger.LogInformation(
+                "Reverted {Count} entries in schedule {ScheduleId} to pending; their Google events no longer exist.",
+                staleMappings.Count, scheduleId);
+        }
+
+        // Mappings flagged NeedsSync still point at a real Google event (so it can be updated
+        // in place later), but the entry is reported as pending because that event is stale.
+        return scheduleMappings.Where(m => !m.NeedsSync).Select(m => m.ScheduledClassId).ToHashSet();
+    }
+
+    /// <summary>
+    /// Flags the Google Calendar event mappings for the given scheduled entries as out of date,
+    /// which makes them report as not-yet-uploaded again. Called whenever a change alters what
+    /// the Google event should look like (timing, location, title, or class membership).
+    /// The mapping itself is kept so the next sync updates the existing Google event in place;
+    /// deleting it would cause the sync to insert a second event and leave the original behind
+    /// as a duplicate.
+    /// </summary>
+    private async Task InvalidateGoogleMappingsAsync(IEnumerable<Guid> scheduledClassIds)
+    {
+        var ids = scheduledClassIds as IReadOnlyCollection<Guid> ?? scheduledClassIds.ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        var mappings = await dataStore.GetGoogleCalendarEventMappingsAsync();
+        var affected = mappings.Where(m => ids.Contains(m.ScheduledClassId) && !m.NeedsSync).ToList();
+        if (affected.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var mapping in affected)
+        {
+            mapping.NeedsSync = true;
+        }
+
+        await dataStore.SaveGoogleCalendarEventMappingsAsync(mappings);
+        logger.LogInformation("Marked {Count} scheduled entries as not uploaded after a details change.", affected.Count);
+    }
+
+    /// <summary>
+    /// Marks every scheduled entry that references the given class as not-yet-uploaded.
+    /// Used when the class itself changes (name, or its enrolled members).
+    /// </summary>
+    private async Task InvalidateGoogleMappingsForClassAsync(Guid classId)
+    {
+        var entries = await dataStore.GetScheduledClassesAsync();
+        await InvalidateGoogleMappingsAsync(entries.Where(e => e.TrainingClassId == classId).Select(e => e.Id));
+    }
+
+    /// <summary>
+    /// Marks every appointment that references the given student as not-yet-uploaded.
+    /// Used when the student's name changes, since it forms the event title.
+    /// </summary>
+    private async Task InvalidateGoogleMappingsForStudentAsync(Guid studentId)
+    {
+        var entries = await dataStore.GetScheduledClassesAsync();
+        await InvalidateGoogleMappingsAsync(entries.Where(e => e.StudentId == studentId).Select(e => e.Id));
     }
 
     public async Task<ScheduleSummaryDto> CreateScheduleAsync(string name)
@@ -380,9 +538,21 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
             throw new ClassPlannerNotFoundException("Schedule was not found.");
         }
 
+        var datesChanged = schedule.StartDate != startDate || schedule.EndDate != endDate;
+
         schedule.StartDate = startDate;
         schedule.EndDate = endDate;
         await dataStore.SaveSchedulesAsync(schedules);
+
+        if (datesChanged)
+        {
+            // Start/end dates determine each event's first occurrence and its RRULE UNTIL bound,
+            // so every entry in the schedule is now stale on Google Calendar.
+            var affectedEntries = await dataStore.GetScheduledClassesAsync();
+            await InvalidateGoogleMappingsAsync(
+                affectedEntries.Where(e => e.ScheduleId == scheduleId).Select(e => e.Id));
+        }
+
         logger.LogInformation("Schedule updated {ScheduleId}", scheduleId);
 
         var entries = await dataStore.GetScheduledClassesAsync();
@@ -390,7 +560,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         {
             Id = schedule.Id,
             Name = schedule.Name,
-            EntryCount = entries.Count(e => e.ScheduleId == scheduleId),
+            EntryCount = entries.Count(e => e.ScheduleId == scheduleId && !e.PendingDeletion),
             StartDate = schedule.StartDate,
             EndDate = schedule.EndDate
         };
@@ -412,6 +582,13 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
 
         schedule.Name = name;
         await dataStore.SaveSchedulesAsync(schedules);
+
+        // Appointment event titles are "<student> - <schedule>", so renaming the schedule makes
+        // every appointment in it stale on Google Calendar.
+        var scheduleEntries = await dataStore.GetScheduledClassesAsync();
+        await InvalidateGoogleMappingsAsync(
+            scheduleEntries.Where(e => e.ScheduleId == scheduleId && e.StudentId.HasValue).Select(e => e.Id));
+
         logger.LogInformation("Schedule renamed {ScheduleId}", scheduleId);
 
         var entries = await dataStore.GetScheduledClassesAsync();
@@ -419,7 +596,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         {
             Id = schedule.Id,
             Name = schedule.Name,
-            EntryCount = entries.Count(e => e.ScheduleId == scheduleId),
+            EntryCount = entries.Count(e => e.ScheduleId == scheduleId && !e.PendingDeletion),
             StartDate = schedule.StartDate,
             EndDate = schedule.EndDate
         };
@@ -691,8 +868,9 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         }
 
         var summary = $"{student.FirstName} {student.LastName}";
+        var eventSummary = $"{summary} - One Time";
         var input = new GoogleCalendarEventInput(
-            summary,
+            eventSummary,
             $"Student: {summary}",
             null,
             eventDate,
@@ -716,13 +894,127 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         return new GoogleCalendarEventDto
         {
             Id = eventId,
-            Summary = summary,
+            Summary = eventSummary,
             Description = input.Description,
             Location = null,
             Start = start,
             End = end,
             StudentId = studentId,
+            RecurrenceType = RecurrenceType.Once,
         };
+    }
+
+    /// <summary>
+    /// Updates the timing of an existing one-time appointment on the user's dedicated
+    /// "Class Planner" Google Calendar. Only appointments that ClassPlanner created for a
+    /// student and recorded as one-time may be changed; classes and repeating events belong to
+    /// a schedule and must be edited there so the whole series stays consistent.
+    /// </summary>
+    public async Task<GoogleCalendarEventDto> UpdateAdHocGoogleAppointmentAsync(
+        string eventId, DateOnly eventDate, TimeSpan startTime, TimeSpan duration, string? accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var validation = await googleCalendarService.ValidateAccessTokenAsync(accessToken);
+        if (!validation.IsValid)
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var settings = await dataStore.GetGoogleCalendarSettingsAsync();
+        if (string.IsNullOrEmpty(settings.CalendarId))
+        {
+            throw new ClassPlannerNotFoundException("Appointment was not found.");
+        }
+
+        var existing = await googleCalendarService.GetEventAsync(accessToken, settings.CalendarId, eventId)
+            ?? throw new ClassPlannerNotFoundException("Appointment was not found.");
+
+        if (existing.StudentId is not { } studentId || existing.RecurrenceType != RecurrenceType.Once)
+        {
+            throw new ClassPlannerConflictException(
+                "Only one-time appointments can be edited here. Classes and repeating appointments are managed in the Schedule View.");
+        }
+
+        var student = await dataStore.GetStudentAsync(studentId);
+        if (student is null)
+        {
+            throw new ClassPlannerNotFoundException("Student was not found.");
+        }
+
+        var summary = $"{student.FirstName} {student.LastName}";
+        var input = new GoogleCalendarEventInput(
+            $"{summary} - One Time",
+            $"Student: {summary}",
+            existing.Location,
+            eventDate,
+            startTime,
+            duration,
+            eventDate.DayOfWeek,
+            null,
+            Guid.Empty,
+            Guid.Empty,
+            null,
+            studentId,
+            RecurrenceType.Once,
+            eventDate);
+
+        // Passing the existing event id updates it in place rather than inserting a duplicate.
+        var updatedEventId = await googleCalendarService.UpsertEventAsync(accessToken, settings.CalendarId, eventId, input);
+        var start = eventDate.ToDateTime(TimeOnly.FromTimeSpan(startTime));
+
+        logger.LogInformation("Ad-hoc Google appointment {EventId} updated", eventId);
+
+        return new GoogleCalendarEventDto
+        {
+            Id = updatedEventId,
+            Summary = input.Summary,
+            Description = input.Description,
+            Location = existing.Location,
+            Start = start,
+            End = start + duration,
+            StudentId = studentId,
+            RecurrenceType = RecurrenceType.Once,
+        };
+    }
+
+    /// <summary>
+    /// Deletes a one-time appointment from the user's dedicated "Class Planner" Google Calendar.
+    /// Subject to the same restriction as <see cref="UpdateAdHocGoogleAppointmentAsync"/>.
+    /// </summary>
+    public async Task DeleteAdHocGoogleAppointmentAsync(string eventId, string? accessToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var validation = await googleCalendarService.ValidateAccessTokenAsync(accessToken);
+        if (!validation.IsValid)
+        {
+            throw new ClassPlannerConflictException("Google Calendar authentication is required.");
+        }
+
+        var settings = await dataStore.GetGoogleCalendarSettingsAsync();
+        if (string.IsNullOrEmpty(settings.CalendarId))
+        {
+            throw new ClassPlannerNotFoundException("Appointment was not found.");
+        }
+
+        var existing = await googleCalendarService.GetEventAsync(accessToken, settings.CalendarId, eventId)
+            ?? throw new ClassPlannerNotFoundException("Appointment was not found.");
+
+        if (existing.StudentId is null || existing.RecurrenceType != RecurrenceType.Once)
+        {
+            throw new ClassPlannerConflictException(
+                "Only one-time appointments can be removed here. Classes and repeating appointments are managed in the Schedule View.");
+        }
+
+        await googleCalendarService.DeleteEventAsync(accessToken, settings.CalendarId, eventId);
+        logger.LogInformation("Ad-hoc Google appointment {EventId} deleted", eventId);
     }
 
     public async Task<ScheduledClassEntryDto> MoveScheduledClassAsync(Guid scheduleId, Guid entryId, DayOfWeek dayOfWeek, TimeSpan startTime, TimeSpan? duration = null, string? location = null)
@@ -742,6 +1034,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         }
         entry.Location = location;
         await dataStore.SaveScheduledClassesAsync(entries);
+        await InvalidateGoogleMappingsAsync([entry.Id]);
         logger.LogInformation("Class moved for scheduled entry {EntryId}", entryId);
 
         var classes = await dataStore.GetClassesAsync();
@@ -757,6 +1050,20 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         if (entry is null)
         {
             throw new ClassPlannerNotFoundException("Scheduled class was not found.");
+        }
+
+        // If the entry has already been uploaded, keep it as a tombstone so the schedule can
+        // show it as pending removal. The Google event is only deleted on the next sync, which
+        // also discards the tombstone. Entries that were never uploaded are removed outright.
+        var mappings = await dataStore.GetGoogleCalendarEventMappingsAsync();
+        var isUploaded = mappings.Any(m => m.ScheduledClassId == entryId);
+
+        if (isUploaded)
+        {
+            entry.PendingDeletion = true;
+            await dataStore.SaveScheduledClassesAsync(entries);
+            logger.LogInformation("Scheduled class {EntryId} marked for removal on next sync", entryId);
+            return;
         }
 
         entries.Remove(entry);
@@ -795,7 +1102,7 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         AppointmentCount = scheduledClasses?.Count(sc => sc.StudentId == student.Id && !sc.TrainingClassId.HasValue) ?? 0
     };
 
-    private static ScheduledClassEntryDto ToEntryDto(ScheduledClass entry, List<TrainingClass> classes, List<Student>? students = null, List<Enrollment>? enrollments = null) => new()
+    private static ScheduledClassEntryDto ToEntryDto(ScheduledClass entry, List<TrainingClass> classes, List<Student>? students = null, List<Enrollment>? enrollments = null, HashSet<Guid>? syncedScheduledClassIds = null) => new()
     {
         Id = entry.Id,
         ScheduleId = entry.ScheduleId,
@@ -815,7 +1122,11 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         Duration = entry.Duration,
         Location = entry.Location,
         RecurrenceType = entry.RecurrenceType,
-        EventDate = entry.EventDate
+        EventDate = entry.EventDate,
+        // When no mapping set is supplied the caller is not reporting sync state, so entries
+        // are not flagged as pending rather than being wrongly shown as un-uploaded.
+        IsPending = syncedScheduledClassIds is not null && !syncedScheduledClassIds.Contains(entry.Id),
+        PendingDeletion = entry.PendingDeletion
     };
 
     private static string FormatStudentName(Student? student) =>
@@ -887,6 +1198,8 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
                 Start = e.Start,
                 End = e.End,
                 StudentId = e.StudentId,
+                TrainingClassId = e.TrainingClassId,
+                RecurrenceType = e.RecurrenceType,
             })
             .ToList();
     }
@@ -925,7 +1238,9 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         }
 
         var allEntries = await dataStore.GetScheduledClassesAsync();
-        var scheduleEntries = allEntries.Where(e => e.ScheduleId == scheduleId).ToList();
+        // Entries flagged for deletion are intentionally excluded here: leaving them out of the
+        // "seen" set below is what drives their Google event to be deleted.
+        var scheduleEntries = allEntries.Where(e => e.ScheduleId == scheduleId && !e.PendingDeletion).ToList();
 
         var classes = await dataStore.GetClassesAsync();
         var students = await dataStore.GetStudentsAsync();
@@ -973,6 +1288,8 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
                     mapping.EventId = eventId;
                 }
 
+                mapping.NeedsSync = false;
+
                 if (isNew)
                 {
                     created++;
@@ -1009,11 +1326,14 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
                     mapping.CalendarId = calendarId;
                     mapping.EventId = eventId;
                 }
+
+                mapping.NeedsSync = false;
                 created++;
             }
         }
 
-        // Remove Google events for mappings whose ScheduledClass no longer exists in this schedule.
+        // Remove Google events for mappings whose ScheduledClass no longer exists in this
+        // schedule, or which was flagged for deletion above.
         var staleMappings = scheduleMappings.Where(m => !seenScheduledClassIds.Contains(m.ScheduledClassId)).ToList();
         foreach (var stale in staleMappings)
         {
@@ -1023,6 +1343,17 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
         }
 
         await dataStore.SaveGoogleCalendarEventMappingsAsync(mappings);
+
+        // The tombstones have now had their Google events deleted, so drop them for good.
+        var tombstones = allEntries.Where(e => e.ScheduleId == scheduleId && e.PendingDeletion).ToList();
+        if (tombstones.Count > 0)
+        {
+            foreach (var tombstone in tombstones)
+            {
+                allEntries.Remove(tombstone);
+            }
+            await dataStore.SaveScheduledClassesAsync(allEntries);
+        }
 
         logger.LogInformation(
             "Synchronized schedule {ScheduleId} to Google Calendar: {Created} created, {Updated} updated, {Deleted} deleted",
@@ -1059,8 +1390,11 @@ public class ClassPlannerService(IDataStore dataStore, GoogleCalendarService goo
                 return null;
             }
 
-            summary = $"{student.FirstName} {student.LastName}";
-            description = $"Student: {summary}";
+            // Student appointments are titled "<student> - <schedule>" so the owning schedule is
+            // identifiable directly on the Google Calendar event.
+            var studentName = $"{student.FirstName} {student.LastName}";
+            summary = $"{studentName} - {schedule.Name}";
+            description = $"Student: {studentName}";
         }
         else
         {

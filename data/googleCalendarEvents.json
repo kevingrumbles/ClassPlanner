@@ -1,8 +1,58 @@
 [
   {
-    "ScheduledClassId": "32247619-b742-4ef9-9da5-bbd8c4176337",
+    "ScheduledClassId": "aa485c70-88a0-40e7-af87-7aefd235a481",
+    "ScheduleId": "f5a0658f-ca68-4fc2-b630-93cd546ae1ac",
+    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
+    "EventId": "kbc59maadmet9cgv2bdni51t8k",
+    "NeedsSync": false
+  },
+  {
+    "ScheduledClassId": "b91cdef5-f68f-45b0-9164-2a1cb07719a0",
     "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
     "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
-    "EventId": "mhuc076jbt6vrefvi8qci4shls"
+    "EventId": "so2tatcm471got6jcm6smuocig",
+    "NeedsSync": false
+  },
+  {
+    "ScheduledClassId": "3afc6ce9-350d-4ccf-930d-5f8898dd91b2",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
+    "EventId": "kv0pb71r6r1reefae5hlcp8548",
+    "NeedsSync": false
+  },
+  {
+    "ScheduledClassId": "34a89e15-9bb5-4165-93ad-965c1c462363",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
+    "EventId": "uqhqc0macfp3qn2v0h3ugl9d00",
+    "NeedsSync": false
+  },
+  {
+    "ScheduledClassId": "55b4d74d-abce-48a1-b00b-329e7b7ca5e6",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
+    "EventId": "athljmi3crq320vl8uopeot6o0",
+    "NeedsSync": false
+  },
+  {
+    "ScheduledClassId": "37b10b71-12ab-4ade-a237-49c633556edd",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
+    "EventId": "eg1f98bi51moabghvsmceckd7k",
+    "NeedsSync": false
+  },
+  {
+    "ScheduledClassId": "66890d24-a2bb-42bd-8750-18178ef2e56d",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
+    "EventId": "hjithn5mfsru46c6q9dnlbkv1k",
+    "NeedsSync": false
+  },
+  {
+    "ScheduledClassId": "b2842a16-c36a-468a-98f1-7cf222f5a44f",
+    "ScheduleId": "4451ca64-c0b3-4c74-89fe-d8824926631d",
+    "CalendarId": "4600d8fb2cd8811a67b5d83131d13533a0ae557503188a4af8e1fcd793e62c21@group.calendar.google.com",
+    "EventId": "spm7ocur3no3a1nrblsjl1j7q4",
+    "NeedsSync": false
   }
 ]

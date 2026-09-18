@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { DayOfWeekIndex, ScheduledClassDetail, StudentDetail } from '../types/models';
+import { EditableSelect, EditableValue } from './EditableValue';
 import { DAY_NAMES, formatTimeOfDay, parseDurationMinutes } from './format';
 
 interface DetailsPanelProps {
@@ -337,20 +338,42 @@ function ScheduledClassFields({
   onRemoveEnrollment,
   onSaveClass,
 }: ScheduledClassFieldsProps) {
-  const [dayOfWeek, setDayOfWeek] = useState(scheduledClassDetail.dayOfWeek);
-  const [startTime, setStartTime] = useState(startTimeToInputValue(scheduledClassDetail.startTime));
-  const [durationMinutes, setDurationMinutes] = useState(durationToInputMinutes(scheduledClassDetail.duration));
-  const [location, setLocation] = useState(scheduledClassDetail.location ?? '');
-  const [classDescription, setClassDescription] = useState(scheduledClassDetail.classDescription ?? '');
-  const [classNotes, setClassNotes] = useState(scheduledClassDetail.classNotes ?? '');
+  const dayOfWeek = scheduledClassDetail.dayOfWeek;
+  const startTime = startTimeToInputValue(scheduledClassDetail.startTime);
+  const durationMinutes = durationToInputMinutes(scheduledClassDetail.duration);
+  const location = scheduledClassDetail.location ?? '';
+  const classDescription = scheduledClassDetail.classDescription ?? '';
+  const classNotes = scheduledClassDetail.classNotes ?? '';
 
-  const isDirty =
-    dayOfWeek !== scheduledClassDetail.dayOfWeek ||
-    startTime !== startTimeToInputValue(scheduledClassDetail.startTime) ||
-    durationMinutes !== durationToInputMinutes(scheduledClassDetail.duration) ||
-    location !== (scheduledClassDetail.location ?? '') ||
-    classDescription !== (scheduledClassDetail.classDescription ?? '') ||
-    classNotes !== (scheduledClassDetail.classNotes ?? '');
+  /**
+   * Persists the schedule entry as soon as one of its properties is committed, carrying the
+   * other values through unchanged so a single edit never clobbers another.
+   */
+  function saveEntry(next: {
+    dayOfWeek?: DayOfWeekIndex;
+    startTime?: string;
+    durationMinutes?: number;
+    location?: string;
+  }) {
+    onSaveScheduledClass?.(
+      scheduledClassDetail.id,
+      next.dayOfWeek ?? dayOfWeek,
+      inputValueToStartTime(next.startTime ?? startTime),
+      minutesToDuration(next.durationMinutes ?? durationMinutes),
+      (next.location ?? location) || null
+    );
+  }
+
+  /** Persists the class fields shared by every occurrence of this class. */
+  function saveClass(next: { description?: string; notes?: string }) {
+    if (!onSaveClass || !scheduledClassDetail.trainingClassId) return;
+    onSaveClass(
+      scheduledClassDetail.trainingClassId,
+      scheduledClassDetail.trainingClassName ?? '',
+      (next.description ?? classDescription) || null,
+      (next.notes ?? classNotes) || null
+    );
+  }
 
   const { setNodeRef, isOver, active } = useDroppable({
     id: `scheduled-class-view:${scheduledClassDetail.id}`,
@@ -367,91 +390,68 @@ function ScheduledClassFields({
           ? `${scheduledClassDetail.studentName} (Appointment)`
           : scheduledClassDetail.trainingClassName}
       </h2>
-      {isDirty && (onSaveScheduledClass || onSaveClass) && (
-        <button
-          type="button"
-          className="class-view-save"
-          onClick={() => {
-            if (
-              onSaveScheduledClass &&
-              (dayOfWeek !== scheduledClassDetail.dayOfWeek ||
-                startTime !== startTimeToInputValue(scheduledClassDetail.startTime) ||
-                durationMinutes !== durationToInputMinutes(scheduledClassDetail.duration) ||
-                location !== (scheduledClassDetail.location ?? ''))
-            ) {
-              onSaveScheduledClass(
-                scheduledClassDetail.id,
-                dayOfWeek,
-                inputValueToStartTime(startTime),
-                minutesToDuration(durationMinutes),
-                location || null
-              );
-            }
-            if (
-              onSaveClass &&
-              scheduledClassDetail.trainingClassId &&
-              (classDescription !== (scheduledClassDetail.classDescription ?? '') ||
-                classNotes !== (scheduledClassDetail.classNotes ?? ''))
-            ) {
-              onSaveClass(
-                scheduledClassDetail.trainingClassId,
-                scheduledClassDetail.trainingClassName ?? '',
-                classDescription || null,
-                classNotes || null
-              );
-            }
-          }}
-        >
-          Save Changes
-        </button>
-      )}
+      <p className="class-view-hint">Click any value below to edit it. Changes save automatically.</p>
       <dl>
         <dt>Day</dt>
         <dd>
-          <select value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value) as DayOfWeekIndex)}>
-            {DAY_OPTIONS.map((d) => (
-              <option key={d} value={d}>
-                {DAY_NAMES[d]}
-              </option>
-            ))}
-          </select>
+          <EditableSelect
+            display={DAY_NAMES[dayOfWeek]}
+            value={String(dayOfWeek)}
+            options={DAY_OPTIONS.map((d) => ({ value: String(d), label: DAY_NAMES[d] }))}
+            onCommit={(value) => saveEntry({ dayOfWeek: Number(value) as DayOfWeekIndex })}
+          />
         </dd>
         <dt>Start Time</dt>
         <dd>
-          <input type="time" step={900} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <EditableValue
+            type="time"
+            step={900}
+            display={formatTimeOfDay(inputValueToStartTime(startTime))}
+            value={startTime}
+            onCommit={(value) => saveEntry({ startTime: value })}
+          />
         </dd>
         <dt>Duration (minutes)</dt>
         <dd>
-          <input
+          <EditableValue
             type="number"
             min={15}
             step={15}
-            value={durationMinutes}
-            onChange={(e) => setDurationMinutes(Math.round(Number(e.target.value) / 15) * 15)}
+            display={String(durationMinutes)}
+            value={String(durationMinutes)}
+            onCommit={(value) => saveEntry({ durationMinutes: Math.round(Number(value) / 15) * 15 })}
           />
         </dd>
         <dt>Location</dt>
         <dd>
-          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} />
+          <EditableValue
+            type="text"
+            display={location}
+            value={location}
+            placeholder="Click to edit"
+            onCommit={(value) => saveEntry({ location: value })}
+          />
         </dd>
         {!scheduledClassDetail.studentId && (
           <>
             <dt>Description</dt>
             <dd>
-              <textarea
-                className="class-view-textarea"
+              <EditableText
                 value={classDescription}
-                onChange={(e) => setClassDescription(e.target.value)}
-                rows={2}
+                placeholder="Click to edit"
+                multiline
+                onChange={() => {}}
+                onCommit={(value) => saveClass({ description: value })}
               />
             </dd>
             <dt>Notes</dt>
             <dd>
-              <textarea
-                className="class-view-textarea"
+              <EditableText
                 value={classNotes}
-                onChange={(e) => setClassNotes(e.target.value)}
-                rows={2}
+                placeholder="Click to edit"
+                multiline
+                onChange={() => {}}
+                onCommit={(value) => saveClass({ notes: value })}
               />
             </dd>
           </>

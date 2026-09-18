@@ -57,8 +57,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function getStudents(): Promise<StudentSummary[]> {
-  return request('/api/students');
+export function getStudents(scheduleId?: string): Promise<StudentSummary[]> {
+  return request(scheduleId ? `/api/students?scheduleId=${scheduleId}` : '/api/students');
 }
 
 export function getStudent(id: string): Promise<StudentDetail> {
@@ -126,8 +126,8 @@ export function getSchedules(): Promise<ScheduleSummary[]> {
   return request('/api/schedules');
 }
 
-export function getScheduleDetail(scheduleId: string): Promise<ScheduleDetail> {
-  return request(`/api/schedules/${scheduleId}`);
+export function getScheduleDetail(scheduleId: string, accessToken?: string | null): Promise<ScheduleDetail> {
+  return request(`/api/schedules/${scheduleId}`, { headers: authHeader(accessToken ?? null) });
 }
 
 export function createSchedule(name: string): Promise<ScheduleSummary> {
@@ -237,6 +237,27 @@ export function updateGoogleCalendar(scheduleId: string, accessToken: string | n
 
 export function getGoogleEvents(accessToken: string | null): Promise<GoogleCalendarEvent[]> {
   return request('/api/google/events', { headers: authHeader(accessToken) });
+}
+
+export function updateGoogleAppointment(
+  eventId: string,
+  eventDate: string,
+  startTime: string,
+  duration: string,
+  accessToken: string | null
+): Promise<GoogleCalendarEvent> {
+  return request(`/api/google/events/${encodeURIComponent(eventId)}`, {
+    method: 'PUT',
+    headers: authHeader(accessToken),
+    body: JSON.stringify({ eventDate, startTime, duration }),
+  });
+}
+
+export function deleteGoogleAppointment(eventId: string, accessToken: string | null): Promise<void> {
+  return request(`/api/google/events/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+    headers: authHeader(accessToken),
+  });
 }
 
 export function createGoogleAppointment(

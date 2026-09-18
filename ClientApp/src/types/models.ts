@@ -89,6 +89,11 @@ export interface ScheduledClassEntry {
    * yet been pushed to Google Calendar. Used to render a distinct "not uploaded" style.
    */
   isPending?: boolean;
+  /**
+   * True when the entry has been removed locally and its Google Calendar event will be deleted
+   * on the next upload. Shown as a red dashed tile until then.
+   */
+  pendingDeletion?: boolean;
 }
 
 export interface ScheduleDetail {
@@ -134,10 +139,16 @@ export interface GoogleCalendarEvent {
   end: string;
   /** The ClassPlanner student this event represents, when created for a student appointment. */
   studentId?: string | null;
+  /** The ClassPlanner class this event represents, when created for a scheduled class. */
+  trainingClassId?: string | null;
+  /** How the event repeats, when ClassPlanner recorded it. */
+  recurrenceType?: RecurrenceType | null;
 }
 
 export type SelectedObject =
   | { type: 'student'; id: string }
   | { type: 'class'; id: string }
   | { type: 'scheduledClass'; scheduleId: string; entryId: string }
+  /** An entry shown in Calendar View, backed by a Google event or a not-yet-uploaded appointment. */
+  | { type: 'calendarEntry'; entryId: string; trainingClassId?: string | null }
   | null;

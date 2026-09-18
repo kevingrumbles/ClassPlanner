@@ -32,4 +32,12 @@ public class ScheduledClass
 
     /// <summary>Optional display title, used for direct appointments imported from external sources.</summary>
     public string? Title { get; set; }
+
+    /// <summary>
+    /// True when this entry has been removed locally but still has a Google Calendar event that
+    /// must be deleted. The entry is kept as a tombstone so the schedule can show it as pending
+    /// removal, and so the sync knows which Google event to delete. It is discarded once the
+    /// removal has been synchronized.
+    /// </summary>
+    public bool PendingDeletion { get; set; }
 }

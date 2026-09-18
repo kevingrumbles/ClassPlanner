@@ -16,5 +16,11 @@
     "StudentId": "ef8bc5a6-65a1-4432-a48b-1108af2c9e78",
     "TrainingClassId": "6a722cc7-4aee-4b96-9ea7-a947ecf68776",
     "CreatedAtUtc": "2026-09-07T04:52:37.8276746Z"
+  },
+  {
+    "Id": "f05270d1-bc5b-4f6b-a97d-9cfcea1633d9",
+    "StudentId": "7fc403fe-3446-4197-95a2-bc66d309e950",
+    "TrainingClassId": "e76f9853-7abc-4f66-ba24-f8c144bd4e79",
+    "CreatedAtUtc": "2026-09-17T01:08:29.5546246Z"
   }
 ]

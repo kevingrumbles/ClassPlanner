@@ -134,6 +134,45 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
         return inserted.Id;
     }
 
+    /// <summary>
+    /// Returns true when the event still exists on the calendar. Events that were deleted or
+    /// cancelled directly in Google Calendar report false, allowing local mappings to be pruned.
+    /// Recurring events are checked by their master event id, so this must not use the
+    /// singleEvents expansion (whose per-occurrence ids differ from the stored id).
+    /// </summary>
+    public async Task<bool> EventExistsAsync(string accessToken, string calendarId, string eventId)
+    {
+        var calendarService = CreateCalendarService(accessToken);
+        try
+        {
+            var googleEvent = await calendarService.Events.Get(calendarId, eventId).ExecuteAsync();
+            return googleEvent is not null && googleEvent.Status != "cancelled";
+        }
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == HttpStatusCode.NotFound || ex.HttpStatusCode == HttpStatusCode.Gone)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fetches a single event by id and parses its ClassPlanner identifiers, or returns null
+    /// when it no longer exists. Uses a direct get (not the singleEvents expansion) so the id
+    /// matches the one stored/returned for the event itself.
+    /// </summary>
+    public async Task<GoogleCalendarEventSnapshot?> GetEventAsync(string accessToken, string calendarId, string eventId)
+    {
+        var calendarService = CreateCalendarService(accessToken);
+        try
+        {
+            var googleEvent = await calendarService.Events.Get(calendarId, eventId).ExecuteAsync();
+            return googleEvent is null ? null : ParseEvent(googleEvent);
+        }
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == HttpStatusCode.NotFound || ex.HttpStatusCode == HttpStatusCode.Gone)
+        {
+            return null;
+        }
+    }
+
     /// <summary>DeletesDeletes an event, tolerating the case where it was already removed manually.</summary>
     public async Task DeleteEventAsync(string accessToken, string calendarId, string eventId)
     {
@@ -327,10 +366,21 @@ public class GoogleCalendarService(HttpClient httpClient, IOptions<GoogleOptions
     {
         var properties = new Dictionary<string, string>
         {
-            ["classPlannerScheduleId"] = input.ScheduleId.ToString(),
-            ["classPlannerScheduledClassId"] = input.ScheduledClassId.ToString(),
             ["classPlannerRecurrenceType"] = input.RecurrenceType.ToString(),
         };
+
+        // Ad-hoc Calendar View appointments are not backed by a schedule or a ScheduledClass,
+        // so those identifiers are empty. Writing Guid.Empty would make the event look owned
+        // by a schedule that does not exist, so only write real identifiers.
+        if (input.ScheduleId != Guid.Empty)
+        {
+            properties["classPlannerScheduleId"] = input.ScheduleId.ToString();
+        }
+
+        if (input.ScheduledClassId != Guid.Empty)
+        {
+            properties["classPlannerScheduledClassId"] = input.ScheduledClassId.ToString();
+        }
 
         if (input.TrainingClassId is { } trainingClassId)
         {

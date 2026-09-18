@@ -69,6 +69,50 @@ public class GoogleController(ClassPlannerService service, IOptions<GoogleOption
         }
     }
 
+    /// <summary>
+    /// Updates the timing of an existing one-time appointment. Classes and repeating events are
+    /// rejected: they belong to a schedule and must be edited from the Schedule View.
+    /// </summary>
+    [HttpPut("events/{eventId}")]
+    public async Task<IActionResult> UpdateEvent(string eventId, [FromBody] UpdateGoogleAppointmentRequest request)
+    {
+        var accessToken = GetBearerToken();
+        try
+        {
+            var updated = await service.UpdateAdHocGoogleAppointmentAsync(
+                eventId, request.EventDate, request.StartTime, request.Duration, accessToken);
+            return Ok(updated);
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ClassPlannerConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Deletes a one-time appointment from the Class Planner calendar.</summary>
+    [HttpDelete("events/{eventId}")]
+    public async Task<IActionResult> DeleteEvent(string eventId)
+    {
+        var accessToken = GetBearerToken();
+        try
+        {
+            await service.DeleteAdHocGoogleAppointmentAsync(eventId, accessToken);
+            return NoContent();
+        }
+        catch (ClassPlannerNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ClassPlannerConflictException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     private string? GetBearerToken()
     {
         var header = Request.Headers.Authorization.ToString();

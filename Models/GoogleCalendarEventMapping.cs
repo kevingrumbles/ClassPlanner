@@ -12,4 +12,12 @@ public class GoogleCalendarEventMapping
     public Guid ScheduleId { get; set; }
     public string CalendarId { get; set; } = "";
     public string EventId { get; set; } = "";
+
+    /// <summary>
+    /// True when local details changed after the event was last uploaded, so the Google event
+    /// is out of date. The mapping is deliberately retained rather than deleted: <see cref="EventId"/>
+    /// is required for the next sync to update the existing event in place instead of inserting
+    /// a second one and leaving the original orphaned as a duplicate.
+    /// </summary>
+    public bool NeedsSync { get; set; }
 }

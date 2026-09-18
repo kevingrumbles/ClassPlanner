@@ -1,5 +1,6 @@
 using ClassPlanner.Persistence;
 using ClassPlanner.Services;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +12,12 @@ builder.Services.AddScoped<ClassPlannerService>();
 builder.Services.AddScoped<GoogleCalendarService>();
 builder.Services.AddHttpClient<GoogleCalendarService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    // Serialize RecurrenceType by name ("Once"/"Weekly") so it matches the frontend's string
+    // union. Applied only to this enum: DayOfWeek must stay numeric because the frontend
+    // indexes into day arrays with it (0 = Sunday ... 6 = Saturday).
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new RecurrenceTypeJsonConverter()));
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 

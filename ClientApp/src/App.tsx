@@ -3,6 +3,8 @@ import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { Calendar } from './components/Calendar';
+import { CalendarEntryDetails } from './components/CalendarEntryDetails';
+import { CalendarStudentDetails } from './components/CalendarStudentDetails';
 import { ClassTile } from './components/ClassTile';
 import { ClassView } from './components/ClassView';
 import { DetailsPanel } from './components/DetailsPanel';
@@ -64,8 +66,20 @@ function App() {
   const [googleSyncMessage, setGoogleSyncMessage] = useState<string | null>(null);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([]);
+  /**
+   * Edits made to appointments already on Google Calendar that have not been uploaded yet.
+   * Keyed by Google event id. These overlay the fetched event so the grid shows the pending
+   * values, and the entry is flagged as unsaved until it is uploaded.
+   */
+  const [googleEventEdits, setGoogleEventEdits] = useState<
+    Record<string, { eventDate: string; startTime: string; duration: string }>
+  >({});
+  const [isLoadingGoogleEvents, setIsLoadingGoogleEvents] = useState(false);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [pendingAppointments, setPendingAppointments] = useState<PendingAppointment[]>([]);
-  const [isSyncingPendingAppointments, setIsSyncingPendingAppointments] = useState(false);
+  /** Guards the sync against overlapping runs; see handleSyncPendingAppointments. */
+  const isSyncingRef = useRef(false);
+  const [googleUnavailableReason, setGoogleUnavailableReason] = useState<string | null>(null);
   const googleTokenClientRef = useRef<GoogleTokenClient | null>(null);
 
   const sensors = useSensors(
@@ -76,7 +90,7 @@ function App() {
   const loadAll = async () => {
     try {
       const [studentsData, schedulesData] = await Promise.all([
-        api.getStudents(),
+        api.getStudents(activeScheduleId ?? undefined),
         api.getSchedules(),
       ]);
       setStudents(studentsData);
@@ -98,11 +112,17 @@ function App() {
     try {
       const config = await api.getGoogleConfig();
       if (!config.clientId) {
+        setGoogleUnavailableReason(
+          'Google client id is not configured. Run: dotnet user-secrets set "Google:ClientId" "<your-client-id>"'
+        );
         return;
       }
 
       const oauth2 = await waitForGoogleIdentityServices();
       if (!oauth2) {
+        setGoogleUnavailableReason(
+          'The Google Identity Services script failed to load. Check your network connection or ad/tracker blockers.'
+        );
         return;
       }
 
@@ -125,9 +145,11 @@ function App() {
         },
       });
 
+      // Prompt automatically on load. An empty prompt lets Google reuse an existing session
+      // and complete without any visible dialog when the user has already granted consent.
       googleTokenClientRef.current.requestAccessToken({ prompt: '' });
     } catch {
-      // Non-fatal: Google Calendar sync will simply be unavailable.
+      setGoogleUnavailableReason('Unable to initialize Google sign-in.');
     }
   };
 
@@ -151,12 +173,38 @@ function App() {
     });
   }
 
+  /**
+   * Reloads the events on the Class Planner Google Calendar. Called on sign-in and after any
+   * action that changes what is on that calendar, so Calendar View stays current.
+   *
+   * Pass `silent` for background reloads that follow a change the user has already seen applied;
+   * these update the grid in place without dimming it behind the loading overlay.
+   */
+  async function refreshGoogleEvents(silent = false) {
+    if (!googleAccessToken) {
+      return;
+    }
+    if (!silent) {
+      setIsLoadingGoogleEvents(true);
+    }
+    try {
+      setGoogleEvents(await api.getGoogleEvents(googleAccessToken));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to load Google Calendar events.');
+    } finally {
+      if (!silent) {
+        setIsLoadingGoogleEvents(false);
+      }
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     const loadGoogleEvents = async () => {
       if (!googleAccessToken) {
         return;
       }
+      setIsLoadingGoogleEvents(true);
       try {
         const events = await api.getGoogleEvents(googleAccessToken);
         if (!cancelled) {
@@ -165,6 +213,10 @@ function App() {
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof ApiError ? err.message : 'Unable to load Google Calendar events.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingGoogleEvents(false);
         }
       }
     };
@@ -182,24 +234,35 @@ function App() {
         setClasses([]);
         return;
       }
+      // Verifying uploaded entries against Google Calendar makes this request noticeably
+      // slower, so surface the same loading treatment the Calendar View uses.
+      setIsLoadingSchedule(true);
       try {
-        const [scheduleDetail, classesData] = await Promise.all([
-          api.getScheduleDetail(activeScheduleId),
+        const [scheduleDetail, classesData, studentsData] = await Promise.all([
+          api.getScheduleDetail(activeScheduleId, googleAccessToken),
           api.getClasses(activeScheduleId),
+          api.getStudents(activeScheduleId),
         ]);
         if (cancelled) return;
         setActiveScheduleDetail(scheduleDetail);
         setClasses(classesData);
+        setStudents(studentsData);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof ApiError ? err.message : 'Unable to load schedule.');
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSchedule(false);
+        }
       }
     };
     loadSchedule();
     return () => {
       cancelled = true;
     };
-  }, [activeScheduleId]);
+    // Re-runs once the Google token arrives so entries whose events were deleted in Google
+    // Calendar are verified and reverted to "not uploaded".
+  }, [activeScheduleId, googleAccessToken]);
 
   useEffect(() => {
     const load = async () => {
@@ -210,6 +273,29 @@ function App() {
         return;
       }
 
+      // Calendar View entries are rendered from data already in memory (Google events and
+      // local pending appointments). Class events do carry the ClassPlanner class id in their
+      // Google extended properties though, so the schedule's class details can be shown.
+      if (selected.type === 'calendarEntry') {
+        setStudentDetail(undefined);
+        setScheduledClassDetail(undefined);
+
+        if (!selected.trainingClassId) {
+          setClassDetail(undefined);
+          return;
+        }
+
+        setDetailLoading(true);
+        try {
+          setClassDetail(await api.getClass(selected.trainingClassId));
+        } catch {
+          // The class may have been deleted from ClassPlanner while its Google event remains.
+          setClassDetail(undefined);
+        } finally {
+          setDetailLoading(false);
+        }
+        return;
+      }
       setDetailLoading(true);
       try {
         if (selected.type === 'student') {
@@ -290,11 +376,12 @@ function App() {
       }
     }
     // refresh summary lists to stay in sync
-    const [studentsData, classesData] = await Promise.all([api.getStudents(), api.getClasses(activeScheduleId ?? undefined)]);
+    const [studentsData, classesData] = await Promise.all([api.getStudents(activeScheduleId ?? undefined), api.getClasses(activeScheduleId ?? undefined)]);
     setStudents(studentsData);
     setClasses(classesData);
     // refresh the calendar's schedule entries (e.g. per-class enrollment counts) so the
-    // schedule focus pane reflects new enrollments even when nothing is selected.
+    // schedule focus pane reflects new enrollments even when nothing is selected. No Google
+    // token: verification is per-entry and too slow for an interactive drop.
     if (activeScheduleId) {
       setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
     }
@@ -317,21 +404,26 @@ function App() {
       await api.scheduleStudent(activeScheduleId, studentId, dayOfWeek, startTime);
       setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
       setSchedules(await api.getSchedules());
-      setStudents(await api.getStudents());
+      setStudents(await api.getStudents(activeScheduleId ?? undefined));
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to schedule student.');
     }
   }
 
+  /**
+   * Creates a one-time appointment locally. It is flagged as unsaved and picked up by the
+   * automatic sync below, which pushes it to Google Calendar.
+   */
   function handleAddPendingAppointment(studentId: string, eventDate: string, startTime: string) {
     const student = students.find((s) => s.id === studentId);
     if (!student) return;
+
     setPendingAppointments((prev) => [
       ...prev,
       {
         id: `pending:${crypto.randomUUID()}`,
         studentId,
-        studentName: `${student.firstName} ${student.lastName}`,
+        studentName: `${student.firstName} ${student.lastName} - One Time`,
         eventDate,
         startTime,
         duration: DEFAULT_APPOINTMENT_DURATION,
@@ -339,11 +431,23 @@ function App() {
     ]);
   }
 
+  /**
+   * Pushes every unsaved Calendar View change to Google Calendar: new appointments are created,
+   * and edits to existing appointments update their event in place so no duplicate is made.
+   * Runs automatically whenever unsaved work appears (see the effect below).
+   */
   async function handleSyncPendingAppointments() {
-    if (pendingAppointments.length === 0 || isSyncingPendingAppointments) return;
-    setIsSyncingPendingAppointments(true);
+    // Snapshot the work up front so the loops below are not affected by the state updates they
+    // make, and so anything added mid-sync is left for the next run rather than being skipped.
+    const appointmentsToCreate = pendingAppointments;
+    const editedEventIds = Object.keys(googleEventEdits);
+    if (appointmentsToCreate.length === 0 && editedEventIds.length === 0) return;
+    // A ref rather than the state flag: state updates are not visible to a second call made in
+    // the same render pass, which would let two syncs upload the same appointment twice.
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
     try {
-      for (const appointment of pendingAppointments) {
+      for (const appointment of appointmentsToCreate) {
         const created = await api.createGoogleAppointment(
           appointment.studentId,
           appointment.eventDate,
@@ -354,10 +458,29 @@ function App() {
         setGoogleEvents((prev) => [...prev, created]);
         setPendingAppointments((prev) => prev.filter((p) => p.id !== appointment.id));
       }
+
+      // Push edits to appointments that already exist on Google Calendar. These update the
+      // existing event in place, so no duplicate is created.
+      for (const eventId of editedEventIds) {
+        const edit = googleEventEdits[eventId];
+        const updated = await api.updateGoogleAppointment(
+          eventId,
+          edit.eventDate,
+          edit.startTime,
+          edit.duration,
+          googleAccessToken
+        );
+        setGoogleEvents((prev) => prev.map((e) => (e.id === eventId ? updated : e)));
+        setGoogleEventEdits((prev) => {
+          const next = { ...prev };
+          delete next[eventId];
+          return next;
+        });
+      }
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to sync appointments to Google Calendar.');
     } finally {
-      setIsSyncingPendingAppointments(false);
+      isSyncingRef.current = false;
     }
   }
 
@@ -381,6 +504,9 @@ function App() {
 
     try {
       await api.moveScheduledClass(activeScheduleId, entryId, dayOfWeek, startTime, resolvedDuration, resolvedLocation);
+      // Refresh without the Google token: verifying every uploaded entry against Google issues
+      // one API call per entry and makes dragging feel laggy. The move already flagged the
+      // entry as needing sync server-side, and verification still runs on schedule load.
       setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
       if (selected?.type === 'scheduledClass' && selected.entryId === entryId) {
         setScheduledClassDetail(await api.getScheduledClassDetail(activeScheduleId, entryId));
@@ -401,8 +527,11 @@ function App() {
 
     try {
       await api.removeScheduledClass(activeScheduleId, entryId);
+      // An uploaded entry is kept server-side as a tombstone so it can be shown as pending
+      // removal, so refresh rather than relying on the optimistic filter above.
+      setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
       setSchedules(await api.getSchedules());
-      setStudents(await api.getStudents());
+      setStudents(await api.getStudents(activeScheduleId ?? undefined));
     } catch (err) {
       setActiveScheduleDetail(previousDetail);
       showError(err instanceof ApiError ? err.message : 'Unable to remove scheduled class.');
@@ -455,9 +584,9 @@ function App() {
         setSelected(null);
       }
       setSchedules(await api.getSchedules());
-      setStudents(await api.getStudents());
+      setStudents(await api.getStudents(activeScheduleId ?? undefined));
       if (activeScheduleId) {
-        setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId));
+        setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId, googleAccessToken));
       }
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to delete class.');
@@ -479,6 +608,10 @@ function App() {
       setStudents((prev) =>
         prev.map((s) => (s.id === studentId ? { ...s, firstName: updated.firstName, lastName: updated.lastName } : s))
       );
+      // A renamed student changes their appointment titles on Google, so entries may now be pending.
+      if (activeScheduleId) {
+        setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId, googleAccessToken));
+      }
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to save student changes.');
     }
@@ -492,10 +625,19 @@ function App() {
   ) {
     try {
       const updated = await api.updateClass(classId, name, description, notes);
-      setClassDetail(updated);
+      // Only drive the class focus pane when a class tile is what is actually selected. A
+      // scheduled class entry can also edit class fields, and setting this would swap the
+      // focus pane away from the entry the user is working on.
+      if (selected?.type === 'class') {
+        setClassDetail(updated);
+      }
       setClasses((prev) => prev.map((c) => (c.id === classId ? { ...c, name: updated.name } : c)));
       if (selected?.type === 'scheduledClass') {
         setScheduledClassDetail(await api.getScheduledClassDetail(selected.scheduleId, selected.entryId));
+      }
+      // A renamed class changes its event titles on Google, so entries may now be pending.
+      if (activeScheduleId) {
+        setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId, googleAccessToken));
       }
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to save class changes.');
@@ -533,9 +675,10 @@ function App() {
       await api.deleteSchedule(activeScheduleId);
       const remaining = schedules.filter((s) => s.id !== activeScheduleId);
       setSchedules(remaining);
-      setActiveScheduleId(remaining[0]?.id ?? null);
+      const nextScheduleId = remaining[0]?.id ?? null;
+      setActiveScheduleId(nextScheduleId);
       setSelected(null);
-      setStudents(await api.getStudents());
+      setStudents(await api.getStudents(nextScheduleId ?? undefined));
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to delete schedule.');
     }
@@ -575,7 +718,7 @@ function App() {
         setSchedules((prev) => [...prev, copy]);
         setActiveScheduleId(copy.id);
         setSelected(null);
-        setStudents(await api.getStudents());
+        setStudents(await api.getStudents(copy.id));
         return;
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -598,6 +741,11 @@ function App() {
       setGoogleSyncMessage(
         `Google Calendar updated. Created: ${result.created}  Updated: ${result.updated}  Removed: ${result.deleted}`
       );
+      // Entries now have Google event mappings, so refresh to clear their "not uploaded" styling.
+      setActiveScheduleDetail(await api.getScheduleDetail(activeScheduleId, googleAccessToken));
+      // The synced entries are now events on the Class Planner calendar, so reload them to keep
+      // Calendar View in step with what was just uploaded.
+      await refreshGoogleEvents();
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Unable to update Google Calendar.');
     } finally {
@@ -626,22 +774,31 @@ function App() {
         const durationHours = Math.floor(durationMinutes / 60);
         const durationRemainder = durationMinutes % 60;
 
+        // An unsaved local edit takes precedence over the values fetched from Google.
+        const edit = googleEventEdits[event.id];
+
         return {
           id: `google:${event.id}`,
           scheduleId: '',
-          trainingClassId: null,
+          trainingClassId: event.trainingClassId ?? null,
           trainingClassName: event.summary,
           enrollmentCount: null,
-          studentId: null,
+          studentId: event.studentId ?? null,
           studentName: null,
-          dayOfWeek: start.getDay() as DayOfWeekIndex,
-          startTime: `${start.getHours().toString().padStart(2, '0')}:${start.getMinutes().toString().padStart(2, '0')}:00`,
-          duration: `${durationHours.toString().padStart(2, '0')}:${durationRemainder.toString().padStart(2, '0')}:00`,
+          dayOfWeek: new Date(`${edit?.eventDate ?? toIsoDate(start)}T00:00:00`).getDay() as DayOfWeekIndex,
+          startTime:
+            edit?.startTime ??
+            `${start.getHours().toString().padStart(2, '0')}:${start.getMinutes().toString().padStart(2, '0')}:00`,
+          duration:
+            edit?.duration ??
+            `${durationHours.toString().padStart(2, '0')}:${durationRemainder.toString().padStart(2, '0')}:00`,
           location: event.location,
-          recurrenceType: 'Once',
+          recurrenceType: event.recurrenceType ?? 'Once',
+          eventDate: edit?.eventDate ?? toIsoDate(start),
+          isPending: Boolean(edit),
         } satisfies ScheduledClassEntry;
       });
-  }, [viewMode, calendarViewDate, googleEvents]);
+  }, [viewMode, calendarViewDate, googleEvents, googleEventEdits]);
 
   // One-time appointments created via Calendar View drag-and-drop that have not yet been synced
   // to Google Calendar, filtered to the week currently shown. These are local-only and are not
@@ -682,30 +839,171 @@ function App() {
     [localCalendarViewEntries, googleCalendarViewEntries]
   );
 
-  // Calendar View one-time appointments (pending locally, or already uploaded to Google) are not
-  // backed by any ClassPlanner ScheduledClass, so the backend's per-student appointment count
-  // does not include them. Augment the counts here so student tiles stay accurate.
-  const studentsWithAdHocCounts = useMemo<StudentSummary[]>(() => {
-    const extraCounts = new Map<string, number>();
-    for (const appointment of pendingAppointments) {
-      extraCounts.set(appointment.studentId, (extraCounts.get(appointment.studentId) ?? 0) + 1);
+  /**
+   * Automatically uploads unsaved Calendar View work. Runs the same logic the manual upload
+   * button used, triggered whenever a new appointment is added or an existing one is edited.
+   *
+   * Depends only on the unsaved work itself: including the in-progress flag would re-run this
+   * when the sync finishes and retry immediately on failure, spinning in a loop.
+   */
+  useEffect(() => {
+    if (!googleAccessToken) return;
+    if (pendingAppointments.length === 0 && Object.keys(googleEventEdits).length === 0) return;
+    handleSyncPendingAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on unsaved work only
+  }, [pendingAppointments, googleEventEdits, googleAccessToken]);
+
+  /**
+   * True when the active schedule has entries that are not yet on Google Calendar, or entries
+   * removed locally whose Google events still need deleting. Drives whether there is anything
+   * for the Update Google Calendar action to do.
+   */
+  const hasScheduleChangesToUpload = useMemo(
+    () => (activeScheduleDetail?.entries ?? []).some((e) => e.isPending || e.pendingDeletion),
+    [activeScheduleDetail]
+  );
+
+  const selectedCalendarEntry = useMemo<ScheduledClassEntry | undefined>(
+    () =>
+      selected?.type === 'calendarEntry'
+        ? calendarViewEntries.find((e) => e.id === selected.entryId)
+        : undefined,
+    [selected, calendarViewEntries]
+  );
+
+  /**
+   * The student selected while in Calendar View, together with their entries in the week on
+   * screen. Uses the summary list rather than fetching detail, since Calendar View reports what
+   * is visible rather than all-time schedule data.
+   */
+  const selectedCalendarStudent = useMemo(() => {
+    if (viewMode !== 'calendar' || selected?.type !== 'student') {
+      return undefined;
     }
-    for (const event of googleEvents) {
-      if (event.studentId) {
-        extraCounts.set(event.studentId, (extraCounts.get(event.studentId) ?? 0) + 1);
-      }
+    const student = students.find((s) => s.id === selected.id);
+    if (!student) {
+      return undefined;
+    }
+    return {
+      student,
+      entries: calendarViewEntries.filter((e) => e.studentId === student.id),
+    };
+  }, [viewMode, selected, students, calendarViewEntries]);
+
+  /**
+   * Selects a Calendar View entry, carrying the ClassPlanner class id so the focus pane can
+   * load the class details for class events.
+   */
+  function selectCalendarEntry(entryId: string) {
+    const entry = calendarViewEntries.find((e) => e.id === entryId);
+    setSelected({ type: 'calendarEntry', entryId, trainingClassId: entry?.trainingClassId ?? null });
+  }
+
+  /**
+   * Saves a one-time appointment edited from Calendar View. The edit is recorded locally and
+   * flagged as unsaved; the automatic sync below pushes it to Google Calendar.
+   *
+   * Each property commits individually, so the selection is kept to allow further edits.
+   */
+  function handleSaveCalendarEntry(
+    entryId: string,
+    eventDate: string,
+    startTime: string,
+    duration: string
+  ) {
+    if (!eventDate) return;
+
+    if (entryId.startsWith('google:')) {
+      const eventId = entryId.slice('google:'.length);
+      setGoogleEventEdits((prev) => ({ ...prev, [eventId]: { eventDate, startTime, duration } }));
+      setCalendarViewDate(eventDate);
+      return;
     }
 
-    if (extraCounts.size === 0) {
+    setPendingAppointments((prev) =>
+      prev.map((appointment) =>
+        appointment.id === entryId ? { ...appointment, eventDate, startTime, duration } : appointment
+      )
+    );
+    setCalendarViewDate(eventDate);
+  }
+
+  /**
+   * Moves a one-time appointment to a different day/time by dragging it in Calendar View.
+   * Classes and repeating appointments are ignored: they belong to a ClassPlanner schedule and
+   * must be moved from the Schedule View so the whole series stays consistent.
+   */
+  function handleMoveCalendarEntry(entryId: string, eventDate: string, startTime: string) {
+    const entry = calendarViewEntries.find((e) => e.id === entryId);
+    if (!entry) return;
+
+    const isClass = Boolean(entry.trainingClassId) || !entry.studentId;
+    if (isClass || entry.recurrenceType !== 'Once') {
+      showError('Only one-time appointments can be moved here. Classes and repeating appointments are managed in the Schedule View.');
+      return;
+    }
+
+    handleSaveCalendarEntry(entryId, eventDate, startTime, entry.duration);
+  }
+
+  async function handleRemoveCalendarEntry(entryId: string) {
+    // Keep a student selection in place so the list can be worked through; only clear the
+    // selection when the removed entry itself was what the focus pane was showing.
+    const clearSelection = () => {
+      if (selected?.type === 'calendarEntry' && selected.entryId === entryId) {
+        setSelected(null);
+      }
+    };
+
+    if (entryId.startsWith('google:')) {
+      const eventId = entryId.slice('google:'.length);
+      try {
+        await api.deleteGoogleAppointment(eventId, googleAccessToken);
+        setGoogleEvents((prev) => prev.filter((e) => e.id !== eventId));
+        // Drop any unsaved edit along with the appointment it belonged to.
+        setGoogleEventEdits((prev) => {
+          const next = { ...prev };
+          delete next[eventId];
+          return next;
+        });
+        clearSelection();
+      } catch (err) {
+        showError(err instanceof ApiError ? err.message : 'Unable to remove appointment.');
+      }
+      return;
+    }
+
+    setPendingAppointments((prev) => prev.filter((appointment) => appointment.id !== entryId));
+    clearSelection();
+  }
+
+  // Student tile counts.
+  //
+  // In Schedule View the counts come straight from the backend, scoped to the active schedule.
+  // Google Calendar events and not-yet-uploaded Calendar View appointments are deliberately
+  // excluded: they are not backed by a ClassPlanner ScheduledClass in the active schedule, so
+  // including them would make the tiles disagree with the schedule grid beside them.
+  //
+  // In Calendar View the tiles instead report only what is visible in the week currently on
+  // screen, so the counts always agree with the grid the user is looking at.
+  const studentsWithAdHocCounts = useMemo<StudentSummary[]>(() => {
+    if (viewMode !== 'calendar') {
       return students;
     }
 
-    return students.map((student) =>
-      extraCounts.has(student.id)
-        ? { ...student, appointmentCount: student.appointmentCount + extraCounts.get(student.id)! }
-        : student
-    );
-  }, [students, pendingAppointments, googleEvents]);
+    const visibleCounts = new Map<string, number>();
+    for (const entry of calendarViewEntries) {
+      if (entry.studentId) {
+        visibleCounts.set(entry.studentId, (visibleCounts.get(entry.studentId) ?? 0) + 1);
+      }
+    }
+
+    return students.map((student) => ({
+      ...student,
+      enrolledClassCount: 0,
+      appointmentCount: visibleCounts.get(student.id) ?? 0,
+    }));
+  }, [students, viewMode, calendarViewEntries]);
 
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current;
@@ -749,7 +1047,13 @@ function App() {
           handleScheduleStudent(activeData.studentId as string, dayOfWeek, startTime);
         }
       } else if (activeData?.type === 'scheduled') {
-        handleMoveScheduledClass(activeData.entryId as string, dayOfWeek, startTime);
+        if (date) {
+          // Calendar View slots carry a specific date, so this is a one-time appointment being
+          // moved to another day/time rather than a weekly schedule entry.
+          handleMoveCalendarEntry(activeData.entryId as string, date, startTime);
+        } else {
+          handleMoveScheduledClass(activeData.entryId as string, dayOfWeek, startTime);
+        }
       }
     }
   }
@@ -759,42 +1063,26 @@ function App() {
       <div className="app">
         <header className="tool-ribbon">
           <h1>Class Planner</h1>
+          <button
+            type="button"
+            className="view-mode-toggle"
+            onClick={() => {
+              setViewMode((prev) => (prev === 'schedule' ? 'calendar' : 'schedule'));
+              setSelected(null);
+            }}
+          >
+            {viewMode === 'schedule' ? 'Calendar View' : 'Schedule View'}
+          </button>
           <div className="google-status">
-            <button
-              type="button"
-              className="view-mode-toggle"
-              onClick={() => setViewMode((prev) => (prev === 'schedule' ? 'calendar' : 'schedule'))}
-            >
-              {viewMode === 'schedule' ? 'Calendar View' : 'Schedule View'}
-            </button>
             {googleStatus.connected && (
               <span className="google-status-connected">
                 Google Calendar Connected{googleStatus.email ? ` (${googleStatus.email})` : ''}
               </span>
             )}
-            {viewMode === 'schedule' && activeScheduleId && (
-              <button
-                type="button"
-                className="calendar-update-google-calendar"
-                onClick={handleUpdateGoogleCalendar}
-                disabled={!googleStatus.connected || isUpdatingGoogleCalendar}
-                title={googleStatus.connected ? undefined : 'Connect Google Calendar to enable synchronization.'}
-              >
-                {isUpdatingGoogleCalendar ? 'Updating...' : 'Update Google Calendar'}
-              </button>
-            )}
-            {viewMode === 'calendar' && pendingAppointments.length > 0 && (
-              <button
-                type="button"
-                className="calendar-update-google-calendar"
-                onClick={handleSyncPendingAppointments}
-                disabled={!googleStatus.connected || isSyncingPendingAppointments}
-                title={googleStatus.connected ? undefined : 'Connect Google Calendar to enable synchronization.'}
-              >
-                {isSyncingPendingAppointments
-                  ? 'Uploading...'
-                  : `Upload ${pendingAppointments.length} pending ${pendingAppointments.length === 1 ? 'appointment' : 'appointments'}`}
-              </button>
+            {!googleStatus.connected && googleUnavailableReason && (
+              <span className="google-status-connected" title={googleUnavailableReason}>
+                Google sign-in unavailable
+              </span>
             )}
           </div>
         </header>
@@ -877,15 +1165,41 @@ function App() {
 
           <main className="focus-pane">
             {viewMode === 'calendar' ? (
-              <Calendar
-                key="calendar-view"
-                entries={calendarViewEntries}
-                hours={HOURS}
-                onSelectEntry={() => {}}
-                viewDate={calendarViewDate}
-                onViewDateChange={setCalendarViewDate}
-              />
-            ) : classDetail ? (
+              selectedCalendarEntry ? (
+                <CalendarEntryDetails
+                  key={selectedCalendarEntry.id}
+                  entry={selectedCalendarEntry}
+                  classDetail={classDetail}
+                  loading={detailLoading}
+                  onSave={handleSaveCalendarEntry}
+                  onRemove={handleRemoveCalendarEntry}
+                  onClose={() => setSelected(null)}
+                />
+              ) : selectedCalendarStudent ? (
+                <CalendarStudentDetails
+                  key={selectedCalendarStudent.student.id}
+                  student={selectedCalendarStudent.student}
+                  entries={selectedCalendarStudent.entries}
+                  onSelectEntry={selectCalendarEntry}
+                  onRemoveEntry={handleRemoveCalendarEntry}
+                  onClose={() => setSelected(null)}
+                />
+              ) : (
+                <Calendar
+                  key="calendar-view"
+                  entries={calendarViewEntries}
+                  hours={HOURS}
+                  onSelectEntry={selectCalendarEntry}
+                  selectedEntryId={selected?.type === 'calendarEntry' ? selected.entryId : undefined}
+                  canDragEntry={(entry) =>
+                    Boolean(entry.studentId) && !entry.trainingClassId && entry.recurrenceType === 'Once'
+                  }
+                  viewDate={calendarViewDate}
+                  onViewDateChange={setCalendarViewDate}
+                  isLoading={isLoadingGoogleEvents}
+                />
+              )
+            ) : classDetail && selected?.type === 'class' ? (
               <ClassView
                 trainingClass={classDetail}
                 onRemoveEnrollment={handleRemoveEnrollment}
@@ -918,6 +1232,29 @@ function App() {
                 endDate={activeScheduleDetail?.endDate}
                 onSaveScheduleDates={activeScheduleId ? handleSaveScheduleDates : undefined}
                 onRenameSchedule={activeScheduleId ? handleRenameSchedule : undefined}
+                isLoading={isLoadingSchedule || isUpdatingGoogleCalendar}
+                loadingMessage={isUpdatingGoogleCalendar ? 'Updating Google Calendar...' : 'Loading schedule...'}
+                toolbarActions={
+                  activeScheduleId ? (
+                    <button
+                      type="button"
+                      className="calendar-update-google-calendar"
+                      onClick={handleUpdateGoogleCalendar}
+                      disabled={
+                        !googleStatus.connected || isUpdatingGoogleCalendar || !hasScheduleChangesToUpload
+                      }
+                      title={
+                        !googleStatus.connected
+                          ? 'Connect Google Calendar to enable synchronization.'
+                          : hasScheduleChangesToUpload
+                            ? undefined
+                            : 'This schedule is already up to date on Google Calendar.'
+                      }
+                    >
+                      {isUpdatingGoogleCalendar ? 'Updating...' : 'Publish Schedule'}
+                    </button>
+                  ) : undefined
+                }
               />
             )}
           </main>
@@ -934,6 +1271,7 @@ function App() {
                   student={student}
                   onSelect={(id) => setSelected({ type: 'student', id })}
                   isSelected={selected?.type === 'student' && selected.id === student.id}
+                  hideEnrolledClasses={viewMode === 'calendar'}
                 />
               ))}
             </div>

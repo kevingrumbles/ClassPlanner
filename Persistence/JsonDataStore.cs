@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ClassPlanner.Models;
+using ClassPlanner.Services;
 using Microsoft.Extensions.Options;
 
 namespace ClassPlanner.Persistence;
@@ -14,7 +15,11 @@ public class JsonDataStore : IDataStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        // Persist RecurrenceType by name so stored data stays readable and is not invalidated
+        // by reordering enum members. Reading also accepts the legacy numeric form. Other
+        // enums (e.g. DayOfWeek) keep their numeric representation.
+        Converters = { new RecurrenceTypeJsonConverter() }
     };
 
     private readonly string _dataDirectory;
